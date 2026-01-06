@@ -1,21 +1,42 @@
 <script setup>
-import { computed, ref } from 'vue';
+import { computed, ref, onMounted, nextTick, watch, onUnmounted } from 'vue';
 import MarkdownIt from 'markdown-it';
-import { User, Bot, Copy, ThumbsUp, ThumbsDown, Check, X, RefreshCw } from 'lucide-vue-next';
+import mermaid from 'mermaid';
+import { User, Bot, Copy, ThumbsUp, ThumbsDown, Check, X, RefreshCw, Edit3 } from 'lucide-vue-next';
 
 const props = defineProps({
     message: Object,
     modelName: String,
     messageIndex: Number,
-    isStreaming: Boolean
+    isStreaming: Boolean,
+    diagramEnabled: Boolean
 });
 
-const emit = defineEmits(['resend']);
+const emit = defineEmits(['resend', 'edit']);
 
 const md = new MarkdownIt({
     html: true,
     linkify: true,
     typographer: true
+});
+
+// 初始化 Mermaid
+mermaid.initialize({
+    startOnLoad: false,
+    theme: 'default',
+    securityLevel: 'loose',
+    fontSize: 14
+});
+
+const contentRef = ref(null);
+const mermaidCounter = ref(0);
+
+// 右键菜单相关
+const contextMenu = ref({
+    visible: false,
+    x: 0,
+    y: 0,
+    targetSvg: null
 });
 
 // 从content中提取base64图片
@@ -70,6 +91,187 @@ const cleanedContent = computed(() => {
 
 const renderedContent = computed(() => {
     return md.render(cleanedContent.value);
+});
+
+// 渲染 Mermaid 图表
+const renderMermaidDiagrams = async () => {
+    if (!contentRef.value) return;
+
+    await nextTick();
+
+    const codeBlocks = contentRef.value.querySelectorAll('pre code');
+
+    for (const block of codeBlocks) {
+        const code = block.textContent;
+        const parent = block.parentElement;
+
+        // 检查是否为 Mermaid 代码（通过常见关键字判断）
+        const isMermaid = /^\s*(graph|sequenceDiagram|classDiagram|stateDiagram|erDiagram|journey|gantt|pie|gitGraph|flowchart|mindmap|timeline|quadrantChart|requirementDiagram|C4Context)/i.test(code);
+
+        if (isMermaid && props.diagramEnabled) {
+            // 如果已经渲染过,跳过
+            if (parent.dataset.mermaidRendered === 'true') continue;
+
+            try {
+                mermaidCounter.value++;
+                const id = `mermaid-${props.messageIndex}-${mermaidCounter.value}`;
+
+                // 创建容器
+                const container = document.createElement('div');
+                container.className = 'mermaid-diagram bg-white dark:bg-gray-900 p-4 rounded-xl overflow-auto relative cursor-context-menu';
+                container.id = id;
+                container.dataset.mermaidRendered = 'true';
+                container.dataset.originalCode = code; // 保存原始代码
+
+                // 渲染图表
+                const { svg } = await mermaid.render(id, code);
+                container.innerHTML = svg;
+
+                // 添加右键菜单事件监听器
+                container.addEventListener('contextmenu', handleDiagramContextMenu);
+
+                // 替换原来的代码块
+                parent.replaceWith(container);
+            } catch (error) {
+                console.error('Mermaid rendering error:', error);
+                // 渲染失败时保留原代码块
+            }
+        }
+    }
+
+    // 如果图表渲染被关闭,检查是否需要恢复代码块
+    if (!props.diagramEnabled) {
+        const diagrams = contentRef.value.querySelectorAll('.mermaid-diagram');
+        diagrams.forEach(diagram => {
+            // 移除右键菜单监听器
+            diagram.removeEventListener('contextmenu', handleDiagramContextMenu);
+
+            const originalCode = diagram.dataset.originalCode;
+            if (originalCode) {
+                // 恢复为原始代码块
+                const pre = document.createElement('pre');
+                const code = document.createElement('code');
+                code.textContent = originalCode;
+                pre.appendChild(code);
+                diagram.replaceWith(pre);
+            }
+        });
+    }
+};
+
+// 处理图表右键菜单
+const handleDiagramContextMenu = (event) => {
+    event.preventDefault();
+    const svgElement = event.currentTarget.querySelector('svg');
+    if (svgElement) {
+        contextMenu.value = {
+            visible: true,
+            x: event.clientX,
+            y: event.clientY,
+            targetSvg: svgElement
+        };
+    }
+};
+
+// 关闭右键菜单
+const closeContextMenu = () => {
+    contextMenu.value.visible = false;
+};
+
+// 将 SVG 转换为 Blob
+const svgToBlob = async (svgElement) => {
+    const svgData = new XMLSerializer().serializeToString(svgElement);
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d');
+    const img = new Image();
+
+    // 获取 SVG 的尺寸
+    const svgRect = svgElement.getBoundingClientRect();
+    canvas.width = svgRect.width * 2; // 2x 分辨率
+    canvas.height = svgRect.height * 2;
+
+    // 设置白色背景
+    ctx.fillStyle = 'white';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    return new Promise((resolve, reject) => {
+        img.onload = () => {
+            ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+            canvas.toBlob((blob) => {
+                resolve(blob);
+            }, 'image/png');
+        };
+        img.onerror = reject;
+        img.src = 'data:image/svg+xml;base64,' + btoa(unescape(encodeURIComponent(svgData)));
+    });
+};
+
+// 保存图表为图片
+const saveDiagramAsImage = async () => {
+    if (!contextMenu.value.targetSvg) return;
+
+    try {
+        const blob = await svgToBlob(contextMenu.value.targetSvg);
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `diagram-${Date.now()}.png`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+        closeContextMenu();
+    } catch (error) {
+        console.error('保存图表失败:', error);
+        alert('保存图表失败: ' + error.message);
+    }
+};
+
+// 复制图表到剪贴板
+const copyDiagramToClipboard = async () => {
+    if (!contextMenu.value.targetSvg) return;
+
+    try {
+        const blob = await svgToBlob(contextMenu.value.targetSvg);
+        await navigator.clipboard.write([
+            new ClipboardItem({
+                'image/png': blob
+            })
+        ]);
+        console.log('图表已复制到剪贴板');
+        closeContextMenu();
+    } catch (error) {
+        console.error('复制图表失败:', error);
+        alert('复制图表失败: ' + error.message);
+    }
+};
+
+// 监听 diagramEnabled 变化,强制重新渲染整个内容
+watch(() => props.diagramEnabled, async () => {
+    // 重新渲染内容
+    await nextTick();
+    await nextTick(); // 等待 DOM 更新
+    renderMermaidDiagrams();
+}, { immediate: false });
+
+// 监听 message 的变化
+watch([() => props.message.content, () => props.message.streaming], async () => {
+    if (!props.message.streaming) {
+        await nextTick();
+        renderMermaidDiagrams();
+    }
+}, { immediate: false });
+
+// 首次渲染
+onMounted(() => {
+    renderMermaidDiagrams();
+    // 添加全局点击事件监听器,关闭右键菜单
+    document.addEventListener('click', closeContextMenu);
+});
+
+// 组件卸载时移除监听器
+onUnmounted(() => {
+    document.removeEventListener('click', closeContextMenu);
 });
 
 const isUser = computed(() => props.message.role === 'user');
@@ -136,95 +338,122 @@ const openImagePreview = (img) => {
     console.log('Setting previewImage.value to:', img);
     previewImage.value = img;
     console.log('previewImage.value is now:', previewImage.value);
+
+    // 添加 ESC 键监听
+    document.addEventListener('keydown', handleEscKey);
 };
 
 const closeImagePreview = () => {
     console.log('closeImagePreview called');
     previewImage.value = null;
+
+    // 移除 ESC 键监听
+    document.removeEventListener('keydown', handleEscKey);
+};
+
+const handleEscKey = (event) => {
+    if (event.key === 'Escape') {
+        closeImagePreview();
+    }
 };
 
 // 重新发送
 const handleResend = () => {
     emit('resend', props.messageIndex);
 };
+
+// 重新编辑
+const handleEdit = () => {
+    emit('edit', props.messageIndex);
+};
 </script>
 
 <template>
-    <div class="py-6 w-full flex justify-center transition-all duration-200">
+    <div class="py-3 w-full flex justify-center transition-all duration-200">
         <div
             :class="[
-                'max-w-4xl w-full flex gap-5 px-8 md:px-6 group rounded-2xl py-4',
-                isUser ? 'bg-chatgpt-user' : 'bg-chatgpt-assistant'
+                'max-w-4xl w-full flex gap-4 px-6 md:px-5 group rounded-xl py-3 transition-colors duration-200',
+                isUser ? 'bg-chatgpt-user dark:bg-chatgpt-dark-user' : 'bg-chatgpt-assistant dark:bg-chatgpt-dark-assistant'
             ]"
         >
             <!-- Avatar -->
             <div
                 :class="[
-                    'w-9 h-9 rounded-full flex items-center justify-center shrink-0 shadow-md',
+                    'w-8 h-8 rounded-full flex items-center justify-center shrink-0 shadow-sm',
                     isUser ? 'bg-gradient-to-br from-blue-500 to-purple-600' : 'bg-gradient-to-br from-emerald-500 to-teal-600'
                 ]"
             >
-                <User v-if="isUser" :size="20" class="text-white" />
-                <Bot v-else :size="20" class="text-white" />
+                <User v-if="isUser" :size="18" class="text-white" />
+                <Bot v-else :size="18" class="text-white" />
             </div>
 
             <!-- Content Container -->
             <div class="flex flex-col gap-2 min-w-0 flex-1 relative">
                 <!-- User Label -->
-                <div class="text-sm font-bold text-chatgpt-text mb-1">
+                <div class="text-xs font-bold text-chatgpt-text dark:text-chatgpt-dark-text mb-0.5">
                     {{ isUser ? '你' : (modelName || 'AI') }}
                 </div>
 
                 <!-- Images -->
-                <div v-if="allImages.length > 0" class="flex flex-wrap gap-2 mb-2">
+                <div v-if="allImages.length > 0" class="flex flex-wrap gap-2 mb-1.5">
                     <div
                         v-for="(img, idx) in allImages"
                         :key="idx"
-                        class="relative overflow-hidden rounded-xl border border-chatgpt-border shadow-sm hover:shadow-md transition-all cursor-pointer group/img"
+                        class="relative rounded-xl border border-chatgpt-border dark:border-chatgpt-dark-border shadow-sm dark:shadow-dark-card hover:shadow-md dark:hover:shadow-dark-elevated transition-all cursor-pointer group/img"
                         @click="openImagePreview(img)"
                     >
                         <img
                             :src="img"
-                            class="max-w-[280px] max-h-[280px] object-contain bg-gray-50 block"
+                            :class="[
+                                'block object-contain bg-gray-50 dark:bg-gray-800 rounded-xl',
+                                isUser ? 'max-w-[200px] max-h-[200px]' : 'max-w-[320px] max-h-[320px]'
+                            ]"
                             alt="Message image"
                             @click="openImagePreview(img)"
                         />
-                        <div class="absolute inset-0 bg-black/0 group-hover/img:bg-black/10 transition-colors flex items-center justify-center pointer-events-none">
+                        <div class="absolute inset-0 bg-black/0 group-hover/img:bg-black/10 transition-colors flex items-center justify-center pointer-events-none rounded-xl">
                             <span class="text-white text-xs opacity-0 group-hover/img:opacity-100 bg-black/50 px-2 py-1 rounded whitespace-nowrap">点击查看大图</span>
                         </div>
                     </div>
                 </div>
 
                 <!-- Text Content -->
-                <div class="prose prose-slate max-w-none break-words text-[15px] leading-[1.7] text-chatgpt-text" v-html="renderedContent"></div>
+                <div ref="contentRef" class="prose prose-slate dark:prose-invert max-w-none break-words text-sm leading-[1.6] text-chatgpt-text dark:text-chatgpt-dark-text" v-html="renderedContent"></div>
 
                 <!-- Streaming Cursor -->
-                <div v-if="!isUser && message.streaming" class="inline-block w-1.5 h-4 bg-chatgpt-accent rounded-sm animate-pulse ml-0.5"></div>
+                <div v-if="!isUser && message.streaming" class="inline-block w-1.5 h-4 bg-chatgpt-accent dark:bg-chatgpt-dark-accent rounded-sm animate-pulse ml-0.5"></div>
 
                 <!-- Actions for AI messages (visible on hover) -->
-                <div v-if="!isUser && !message.streaming && message.content" class="flex items-center gap-1 mt-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                <div v-if="!isUser && !message.streaming && message.content" class="flex items-center gap-0.5 mt-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
                     <button
                         @click="copyToClipboard"
-                        class="p-1.5 hover:bg-gray-200 rounded-md text-chatgpt-subtext hover:text-chatgpt-text transition-colors flex items-center gap-1"
+                        class="p-1 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-md text-chatgpt-subtext hover:text-chatgpt-text transition-colors flex items-center gap-1"
                         :title="copied ? '已复制' : '复制'">
-                        <Check v-if="copied" :size="14" class="text-green-600" />
-                        <Copy v-else :size="14" />
+                        <Check v-if="copied" :size="13" class="text-green-600" />
+                        <Copy v-else :size="13" />
                     </button>
-                    <button class="p-1.5 hover:bg-gray-200 rounded-md text-chatgpt-subtext hover:text-chatgpt-text transition-colors">
-                        <ThumbsUp :size="14" />
+                    <button class="p-1 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-md text-chatgpt-subtext hover:text-chatgpt-text transition-colors">
+                        <ThumbsUp :size="13" />
                     </button>
-                    <button class="p-1.5 hover:bg-gray-200 rounded-md text-chatgpt-subtext hover:text-chatgpt-text transition-colors">
-                        <ThumbsDown :size="14" />
+                    <button class="p-1 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-md text-chatgpt-subtext hover:text-chatgpt-text transition-colors">
+                        <ThumbsDown :size="13" />
                     </button>
                 </div>
 
                 <!-- Actions for User messages (visible on hover) -->
-                <div v-if="isUser && !isStreaming" class="flex items-center gap-1 mt-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                <div v-if="isUser && !isStreaming" class="flex items-center gap-0.5 mt-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <button
+                        @click="handleEdit"
+                        class="p-1 hover:bg-blue-100 dark:hover:bg-blue-900/30 rounded-md text-chatgpt-subtext hover:text-blue-600 dark:hover:text-blue-400 transition-colors flex items-center gap-1 text-xs"
+                        title="重新编辑这条消息">
+                        <Edit3 :size="13" />
+                        <span class="text-xs">编辑</span>
+                    </button>
                     <button
                         @click="handleResend"
-                        class="p-1.5 hover:bg-emerald-100 rounded-md text-chatgpt-subtext hover:text-emerald-600 transition-colors flex items-center gap-1.5 text-sm"
+                        class="p-1 hover:bg-emerald-100 dark:hover:bg-emerald-900/30 rounded-md text-chatgpt-subtext hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors flex items-center gap-1 text-xs"
                         title="重新发送这条消息">
-                        <RefreshCw :size="14" />
+                        <RefreshCw :size="13" />
                         <span class="text-xs">重新发送</span>
                     </button>
                 </div>
@@ -255,6 +484,35 @@ const handleResend = () => {
                 />
             </div>
         </Transition>
+
+        <!-- Diagram Context Menu -->
+        <Transition name="fade">
+            <div
+                v-if="contextMenu.visible"
+                :style="{ top: `${contextMenu.y}px`, left: `${contextMenu.x}px` }"
+                class="fixed z-[10000] bg-white dark:bg-chatgpt-dark-sidebar border-2 border-gray-200 dark:border-chatgpt-dark-border rounded-xl shadow-2xl dark:shadow-dark-elevated overflow-hidden min-w-[180px]"
+                @click.stop
+            >
+                <button
+                    @click="copyDiagramToClipboard"
+                    class="w-full flex items-center gap-3 px-4 py-3 hover:bg-gray-100 dark:hover:bg-chatgpt-dark-user transition-colors text-left text-sm text-chatgpt-text dark:text-chatgpt-dark-text border-b border-gray-100 dark:border-chatgpt-dark-border"
+                >
+                    <Copy :size="16" class="text-chatgpt-accent dark:text-chatgpt-dark-accent" />
+                    <span>复制图表</span>
+                </button>
+                <button
+                    @click="saveDiagramAsImage"
+                    class="w-full flex items-center gap-3 px-4 py-3 hover:bg-gray-100 dark:hover:bg-chatgpt-dark-user transition-colors text-left text-sm text-chatgpt-text dark:text-chatgpt-dark-text"
+                >
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-chatgpt-accent dark:text-chatgpt-dark-accent">
+                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                        <polyline points="7 10 12 15 17 10"></polyline>
+                        <line x1="12" y1="15" x2="12" y2="3"></line>
+                    </svg>
+                    <span>保存为图片</span>
+                </button>
+            </div>
+        </Transition>
     </Teleport>
 </template>
 
@@ -266,12 +524,19 @@ const handleResend = () => {
     --tw-prose-bold: #111827;
 }
 
+/* Dark mode prose colors */
+.dark .prose {
+    --tw-prose-body: #ECECF1;
+    --tw-prose-headings: #ECECF1;
+    --tw-prose-bold: #ECECF1;
+}
+
 .prose pre {
-    @apply bg-gray-900 text-gray-100 p-4 rounded-xl overflow-x-auto my-4 shadow-md;
+    @apply bg-gray-900 dark:bg-black text-gray-100 dark:text-gray-200 p-4 rounded-xl overflow-x-auto my-4 shadow-md dark:shadow-dark-card;
 }
 
 .prose code {
-    @apply bg-gray-100 px-1.5 py-0.5 rounded font-mono text-[13px] text-pink-600 font-medium;
+    @apply bg-gray-100 dark:bg-gray-800 px-1.5 py-0.5 rounded font-mono text-[13px] text-pink-600 dark:text-pink-400 font-medium;
 }
 
 .prose pre code {
@@ -291,11 +556,11 @@ const handleResend = () => {
 }
 
 .prose blockquote {
-    @apply border-l-4 border-chatgpt-accent pl-4 italic text-gray-600 my-4 bg-gray-50 py-2 rounded-r-lg;
+    @apply border-l-4 border-chatgpt-accent dark:border-chatgpt-dark-accent pl-4 italic text-gray-600 dark:text-gray-400 my-4 bg-gray-50 dark:bg-gray-800/50 py-2 rounded-r-lg;
 }
 
 .prose a {
-    @apply text-chatgpt-accent hover:underline font-medium transition-colors;
+    @apply text-chatgpt-accent dark:text-chatgpt-dark-accent hover:underline font-medium transition-colors;
 }
 
 .prose h1, .prose h2, .prose h3 {

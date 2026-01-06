@@ -24,14 +24,15 @@
 }
 
 body {
-  @apply bg-chatgpt-main text-chatgpt-text;
+  @apply bg-chatgpt-main dark:bg-chatgpt-dark-main text-chatgpt-text dark:text-chatgpt-dark-text;
   margin: 0;
   font-family: 'Manrope', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  transition: background-color 0.2s ease, color 0.2s ease;
 }
 
-/* Modern Scrollbar Styling */
+/* Modern Scrollbar Styling - Light Mode */
 ::-webkit-scrollbar {
   width: 8px;
   height: 8px;
@@ -49,6 +50,15 @@ body {
 
 ::-webkit-scrollbar-thumb:hover {
   background: rgba(0, 0, 0, 0.25);
+}
+
+/* Dark Mode Scrollbar */
+.dark ::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.15);
+}
+
+.dark ::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.25);
 }
 
 /* Smooth transitions for all interactive elements */

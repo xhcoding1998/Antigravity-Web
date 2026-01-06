@@ -1,0 +1,10 @@
+Settings.vue 暗色适配修复清单：
+
+需要修复的元素：
+1. 所有 label 标签 - text-gray-600 需要加 dark:text-chatgpt-dark-subtext
+2. 所有 input 输入框 - 需要加暗色背景和文字
+3. 所有描述文字 - text-gray-500/600/700 需要加暗色
+4. 模型卡片内的文字 - text-gray-900/500 需要加暗色
+5. 按钮 - bg-gray-200 需要加暗色
+6. 提示框 - bg-blue-50 等需要加暗色
+7. 统计卡片 - bg-white 需要加暗色

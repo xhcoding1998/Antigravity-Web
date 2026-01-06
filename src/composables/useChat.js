@@ -88,6 +88,24 @@ export function useChat() {
     const isDbReady = ref(false);
     const isInitializing = ref(true);
 
+    // 上下文开关状态
+    const contextEnabled = ref(true);
+
+    // 图表渲染开关状态
+    const diagramEnabled = ref(true);
+
+    // 判断是否为绘图模型（包含比例的模型名称）
+    const isDrawingModel = (modelId) => {
+        return modelId && (
+            modelId.includes('16:9') ||
+            modelId.includes('9:16') ||
+            modelId.includes('4:3') ||
+            modelId.includes('3:4') ||
+            modelId.includes('1:1') ||
+            modelId.includes('image')
+        );
+    };
+
     // 加载设置
     const loadSettings = async () => {
         try {
@@ -306,7 +324,22 @@ export function useChat() {
         messages.value.push(assistantMessage);
 
         try {
-            const apiMessages = messages.value.slice(0, -1).map(msg => {
+            // 判断当前模型是否为绘图模型
+            const isDrawing = isDrawingModel(selectedModelId.value);
+
+            // 根据上下文开关和绘图模型决定发送哪些消息
+            // 绘图模型或上下文关闭时,只发送最后一条用户消息
+            let messagesToSend;
+            if (isDrawing || !contextEnabled.value) {
+                // 只发送最后一条用户消息
+                const lastUserMessage = messages.value.slice(0, -1).filter(m => m.role === 'user').pop();
+                messagesToSend = lastUserMessage ? [lastUserMessage] : [];
+            } else {
+                // 发送完整的对话历史(不包括正在生成的助手消息)
+                messagesToSend = messages.value.slice(0, -1);
+            }
+
+            const apiMessages = messagesToSend.map(msg => {
                 if (msg.images && msg.images.length > 0) {
                     const contentArr = [{ type: 'text', text: msg.content }];
                     msg.images.forEach(img => {
@@ -450,6 +483,37 @@ export function useChat() {
         await sendMessage(messageToResend.content, messageToResend.images || [], true);
     };
 
+    // 编辑并重新发送消息
+    const editMessage = (messageIndex) => {
+        if (messageIndex < 0 || messageIndex >= messages.value.length) {
+            console.error('Invalid message index');
+            return null;
+        }
+
+        const messageToEdit = messages.value[messageIndex];
+
+        // 确保是用户消息
+        if (messageToEdit.role !== 'user') {
+            console.error('Can only edit user messages');
+            return null;
+        }
+
+        // 返回要编辑的消息内容和图片,并删除该消息之后的所有消息
+        messages.value = messages.value.slice(0, messageIndex);
+
+        // 保存到历史记录
+        const chatIndex = history.value.findIndex(c => c.id === currentChatId.value);
+        if (chatIndex !== -1) {
+            history.value[chatIndex].messages = [...messages.value];
+            saveHistoryDebounced(history.value[chatIndex]);
+        }
+
+        return {
+            content: messageToEdit.content,
+            images: messageToEdit.images || []
+        };
+    };
+
     // 重置所有设置到默认值
     const resetAllSettings = async () => {
         models.value = DEFAULT_MODELS.map(m => ({ ...m }));
@@ -548,12 +612,16 @@ export function useChat() {
         dataRetention,
         isDbReady,
         isInitializing,
+        contextEnabled,
+        diagramEnabled,
+        isDrawingModel,
         createNewChat,
         selectChat,
         deleteChat,
         clearHistory,
         sendMessage,
         resendMessage,
+        editMessage,
         updateModels,
         updateApiConfig,
         updateDataRetention,

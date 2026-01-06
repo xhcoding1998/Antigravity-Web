@@ -230,7 +230,7 @@ const handleClearAllData = () => {
     >
         <!-- 设置面板 -->
         <Transition name="modal-content">
-            <div class="bg-white dark:bg-chatgpt-dark-sidebar rounded-2xl shadow-2xl dark:shadow-dark-elevated w-full max-w-3xl max-h-[85vh] flex flex-col transition-colors duration-200 dark:border-2 dark:border-chatgpt-dark-border">
+            <div class="bg-white dark:bg-chatgpt-dark-sidebar rounded-2xl shadow-2xl dark:shadow-dark-elevated w-full max-w-3xl max-h-[85vh] flex flex-col transition-colors duration-200">
                     <!-- 头部 -->
                     <div class="flex items-center justify-between p-6 border-b border-gray-200 dark:border-chatgpt-dark-border transition-colors duration-200">
                         <h2 class="text-2xl font-bold text-gray-900 dark:text-chatgpt-dark-text">设置</h2>
@@ -299,7 +299,7 @@ const handleClearAllData = () => {
                     <div class="flex items-center justify-between mb-4">
                         <div>
                             <p class="text-sm text-gray-600 dark:text-chatgpt-dark-subtext">管理您的AI模型列表</p>
-                            <p class="text-xs text-gray-400 dark:text-gray-500 dark:text-gray-400 mt-1">共 {{ localModels.length }} 个模型</p>
+                            <p class="text-xs text-gray-400 dark:text-gray-500 mt-1">共 {{ localModels.length }} 个模型</p>
                         </div>
                         <button
                             @click="startAddModel"
@@ -324,27 +324,27 @@ const handleClearAllData = () => {
                         >
                             <div v-if="editingModelId === model.id" class="space-y-3">
                                 <div>
-                                    <label class="block text-xs font-semibold text-gray-600 dark:text-chatgpt-dark-subtext mb-1">模型ID</label>
+                                    <label class="block text-xs font-semibold text-gray-600 mb-1">模型ID</label>
                                     <input
                                         v-model="editingModel.id"
                                         disabled
-                                        class="w-full px-3 py-2 border border-gray-300 dark:border-chatgpt-dark-border rounded-lg dark:bg-chatgpt-dark-input dark:text-chatgpt-dark-text bg-gray-50 dark:bg-gray-700 text-sm dark:text-gray-300"
+                                        class="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-50 text-sm"
                                         placeholder="模型ID"
                                     />
                                 </div>
                                 <div>
-                                    <label class="block text-xs font-semibold text-gray-600 dark:text-chatgpt-dark-subtext mb-1">模型名称</label>
+                                    <label class="block text-xs font-semibold text-gray-600 mb-1">模型名称</label>
                                     <input
                                         v-model="editingModel.name"
-                                        class="w-full px-3 py-2 border border-gray-300 dark:border-chatgpt-dark-border rounded-lg dark:bg-chatgpt-dark-input dark:text-chatgpt-dark-text focus:border-chatgpt-accent focus:ring-1 focus:ring-chatgpt-accent text-sm"
+                                        class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:border-chatgpt-accent focus:ring-1 focus:ring-chatgpt-accent text-sm"
                                         placeholder="模型名称"
                                     />
                                 </div>
                                 <div>
-                                    <label class="block text-xs font-semibold text-gray-600 dark:text-chatgpt-dark-subtext mb-1">模型描述</label>
+                                    <label class="block text-xs font-semibold text-gray-600 mb-1">模型描述</label>
                                     <input
                                         v-model="editingModel.desc"
-                                        class="w-full px-3 py-2 border border-gray-300 dark:border-chatgpt-dark-border rounded-lg dark:bg-chatgpt-dark-input dark:text-chatgpt-dark-text focus:border-chatgpt-accent focus:ring-1 focus:ring-chatgpt-accent text-sm"
+                                        class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:border-chatgpt-accent focus:ring-1 focus:ring-chatgpt-accent text-sm"
                                         placeholder="模型描述"
                                     />
                                 </div>
@@ -358,7 +358,7 @@ const handleClearAllData = () => {
                                     </button>
                                     <button
                                         @click="cancelEdit"
-                                        class="px-4 py-2 bg-gray-200 dark:bg-chatgpt-dark-user text-gray-700 dark:text-chatgpt-dark-text rounded-lg hover:bg-gray-300 dark:hover:bg-chatgpt-dark-assistant transition-colors text-sm"
+                                        class="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors text-sm"
                                     >
                                         取消
                                     </button>
@@ -367,18 +367,18 @@ const handleClearAllData = () => {
                             <div v-else class="flex items-start justify-between gap-4">
                                 <div class="flex-1 min-w-0">
                                     <div class="flex items-center gap-2 mb-1">
-                                        <div class="font-semibold text-gray-900 dark:text-chatgpt-dark-text text-base">{{ model.name }}</div>
-                                        <div class="px-2 py-0.5 bg-gray-100 dark:bg-gray-700 rounded text-xs text-gray-600 dark:text-gray-300 font-mono">{{ model.id }}</div>
+                                        <div class="font-semibold text-gray-900 text-base">{{ model.name }}</div>
+                                        <div class="px-2 py-0.5 bg-gray-100 rounded text-xs text-gray-600 font-mono">{{ model.id }}</div>
                                         <div v-if="model.id === props.selectedModelId" class="px-2 py-0.5 bg-chatgpt-accent text-white rounded text-xs font-medium">
                                             当前使用
                                         </div>
                                     </div>
-                                    <div class="text-sm text-gray-500 dark:text-gray-400">{{ model.desc || '暂无描述' }}</div>
+                                    <div class="text-sm text-gray-500">{{ model.desc || '暂无描述' }}</div>
                                 </div>
                                 <div class="flex gap-1 shrink-0">
                                     <button
                                         @click="startEditModel(model)"
-                                        class="p-2 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded-lg transition-colors text-gray-600 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400"
+                                        class="p-2 hover:bg-blue-50 rounded-lg transition-colors text-gray-600 hover:text-blue-600"
                                         title="编辑"
                                     >
                                         <Edit2 :size="16" />
@@ -389,8 +389,8 @@ const handleClearAllData = () => {
                                         :class="[
                                             'p-2 rounded-lg transition-colors',
                                             model.id === props.selectedModelId
-                                                ? 'text-gray-300 dark:text-gray-600 cursor-not-allowed'
-                                                : 'hover:bg-red-50 dark:hover:bg-red-900/30 text-gray-600 dark:text-gray-400 hover:text-red-500 dark:hover:text-red-400'
+                                                ? 'text-gray-300 cursor-not-allowed'
+                                                : 'hover:bg-red-50 text-gray-600 hover:text-red-500'
                                         ]"
                                         :title="model.id === props.selectedModelId ? '不能删除当前使用的模型' : '删除'"
                                     >
@@ -402,34 +402,34 @@ const handleClearAllData = () => {
                     </div>
 
                     <!-- 添加模型表单 -->
-                    <div v-if="showAddModel" class="border-2 border-dashed border-chatgpt-accent dark:border-chatgpt-dark-accent rounded-xl p-5 bg-gradient-to-br from-emerald-50/50 to-teal-50/30 dark:from-emerald-900/10 dark:to-teal-900/10 space-y-4">
+                    <div v-if="showAddModel" class="border-2 border-dashed border-chatgpt-accent rounded-xl p-5 bg-gradient-to-br from-emerald-50/50 to-teal-50/30 space-y-4">
                         <div class="flex items-center justify-between mb-2">
-                            <h4 class="font-semibold text-gray-900 dark:text-chatgpt-dark-text flex items-center gap-2">
+                            <h4 class="font-semibold text-gray-900 flex items-center gap-2">
                                 <Plus :size="18" class="text-chatgpt-accent" />
                                 添加新模型
                             </h4>
                         </div>
                         <div>
-                            <label class="block text-xs font-semibold text-gray-600 dark:text-chatgpt-dark-subtext mb-1">模型ID *</label>
+                            <label class="block text-xs font-semibold text-gray-600 mb-1">模型ID *</label>
                             <input
                                 v-model="newModel.id"
-                                class="w-full px-3 py-2 border border-gray-300 dark:border-chatgpt-dark-border rounded-lg dark:bg-chatgpt-dark-input dark:text-chatgpt-dark-text focus:border-chatgpt-accent focus:ring-2 focus:ring-chatgpt-accent/20 text-sm"
+                                class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:border-chatgpt-accent focus:ring-2 focus:ring-chatgpt-accent/20 text-sm"
                                 placeholder="例如：gpt-4"
                             />
                         </div>
                         <div>
-                            <label class="block text-xs font-semibold text-gray-600 dark:text-chatgpt-dark-subtext mb-1">模型名称 *</label>
+                            <label class="block text-xs font-semibold text-gray-600 mb-1">模型名称 *</label>
                             <input
                                 v-model="newModel.name"
-                                class="w-full px-3 py-2 border border-gray-300 dark:border-chatgpt-dark-border rounded-lg dark:bg-chatgpt-dark-input dark:text-chatgpt-dark-text focus:border-chatgpt-accent focus:ring-2 focus:ring-chatgpt-accent/20 text-sm"
+                                class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:border-chatgpt-accent focus:ring-2 focus:ring-chatgpt-accent/20 text-sm"
                                 placeholder="例如：GPT-4"
                             />
                         </div>
                         <div>
-                            <label class="block text-xs font-semibold text-gray-600 dark:text-chatgpt-dark-subtext mb-1">模型描述</label>
+                            <label class="block text-xs font-semibold text-gray-600 mb-1">模型描述</label>
                             <input
                                 v-model="newModel.desc"
-                                class="w-full px-3 py-2 border border-gray-300 dark:border-chatgpt-dark-border rounded-lg dark:bg-chatgpt-dark-input dark:text-chatgpt-dark-text focus:border-chatgpt-accent focus:ring-2 focus:ring-chatgpt-accent/20 text-sm"
+                                class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:border-chatgpt-accent focus:ring-2 focus:ring-chatgpt-accent/20 text-sm"
                                 placeholder="例如：最强大的语言模型"
                             />
                         </div>
@@ -443,7 +443,7 @@ const handleClearAllData = () => {
                             </button>
                             <button
                                 @click="showAddModel = false"
-                                class="px-5 py-2.5 bg-white dark:bg-chatgpt-dark-user border border-gray-300 dark:border-chatgpt-dark-border text-gray-700 dark:text-chatgpt-dark-text rounded-lg hover:bg-gray-50 dark:hover:bg-chatgpt-dark-assistant transition-colors text-sm"
+                                class="px-5 py-2.5 bg-white border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors text-sm"
                             >
                                 取消
                             </button>
@@ -453,9 +453,9 @@ const handleClearAllData = () => {
 
                 <!-- API配置标签页 -->
                 <div v-if="activeTab === 'api'" class="space-y-6">
-                    <div class="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-xl p-4 flex gap-3">
-                        <AlertCircle :size="20" class="text-blue-600 dark:text-blue-400 shrink-0 mt-0.5" />
-                        <div class="text-sm text-blue-800 dark:text-blue-200">
+                    <div class="bg-blue-50 border border-blue-200 rounded-xl p-4 flex gap-3">
+                        <AlertCircle :size="20" class="text-blue-600 shrink-0 mt-0.5" />
+                        <div class="text-sm text-blue-800">
                             <p class="font-semibold mb-1">注意事项</p>
                             <p>修改API配置后需要重新发送消息才会生效。请确保填写正确的API地址和密钥。</p>
                         </div>
@@ -463,29 +463,29 @@ const handleClearAllData = () => {
 
                     <div class="space-y-4">
                         <div>
-                            <label class="block text-sm font-semibold text-gray-700 dark:text-chatgpt-dark-text mb-2">
+                            <label class="block text-sm font-semibold text-gray-700 mb-2">
                                 API地址 (Base URL)
                             </label>
                             <input
                                 v-model="localApiConfig.baseUrl"
                                 type="text"
-                                class="w-full px-4 py-3 border border-gray-300 dark:border-chatgpt-dark-border rounded-lg dark:bg-chatgpt-dark-input dark:text-chatgpt-dark-text focus:border-chatgpt-accent focus:ring-2 focus:ring-chatgpt-accent/20 text-sm font-mono"
+                                class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:border-chatgpt-accent focus:ring-2 focus:ring-chatgpt-accent/20 text-sm font-mono"
                                 placeholder="http://127.0.0.1:8045/v1/chat/completions"
                             />
-                            <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">API服务器的完整地址</p>
+                            <p class="text-xs text-gray-500 mt-1">API服务器的完整地址</p>
                         </div>
 
                         <div>
-                            <label class="block text-sm font-semibold text-gray-700 dark:text-chatgpt-dark-text mb-2">
+                            <label class="block text-sm font-semibold text-gray-700 mb-2">
                                 API密钥 (API Key)
                             </label>
                             <input
                                 v-model="localApiConfig.apiKey"
                                 type="password"
-                                class="w-full px-4 py-3 border border-gray-300 dark:border-chatgpt-dark-border rounded-lg dark:bg-chatgpt-dark-input dark:text-chatgpt-dark-text focus:border-chatgpt-accent focus:ring-2 focus:ring-chatgpt-accent/20 text-sm font-mono"
+                                class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:border-chatgpt-accent focus:ring-2 focus:ring-chatgpt-accent/20 text-sm font-mono"
                                 placeholder="sk-..."
                             />
-                            <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">您的API访问密钥</p>
+                            <p class="text-xs text-gray-500 mt-1">您的API访问密钥</p>
                         </div>
                     </div>
                 </div>
@@ -493,19 +493,19 @@ const handleClearAllData = () => {
                 <!-- 数据管理标签页 -->
                 <div v-if="activeTab === 'data'" class="space-y-6">
                     <!-- 存储信息 -->
-                    <div class="bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 border border-blue-200 dark:border-blue-800 rounded-xl p-5">
+                    <div class="bg-gradient-to-br from-blue-50 to-indigo-50 border border-blue-200 rounded-xl p-5">
                         <div class="flex items-start justify-between mb-4">
                             <div class="flex items-start gap-3">
-                                <Database :size="22" class="text-blue-600 dark:text-blue-400 shrink-0 mt-0.5" />
+                                <Database :size="22" class="text-blue-600 shrink-0 mt-0.5" />
                                 <div>
-                                    <p class="font-bold text-blue-900 dark:text-blue-200 text-lg mb-1">存储统计</p>
-                                    <p class="text-sm text-blue-700 dark:text-blue-300">IndexedDB 本地存储，支持 500MB+ 大容量</p>
+                                    <p class="font-bold text-blue-900 text-lg mb-1">存储统计</p>
+                                    <p class="text-sm text-blue-700">IndexedDB 本地存储，支持 500MB+ 大容量</p>
                                 </div>
                             </div>
                             <button
                                 @click="refreshStorageInfo"
                                 :disabled="isLoadingStorage"
-                                class="p-2 hover:bg-blue-100 dark:hover:bg-blue-900/40 rounded-lg transition-colors disabled:opacity-50"
+                                class="p-2 hover:bg-blue-100 rounded-lg transition-colors disabled:opacity-50"
                                 title="刷新存储信息"
                             >
                                 <RefreshCw :size="18" :class="['text-blue-600', isLoadingStorage ? 'animate-spin' : '']" />
@@ -515,27 +515,27 @@ const handleClearAllData = () => {
                         <!-- 浏览器存储配额 -->
                         <div v-if="storageInfo" class="space-y-4">
                             <div class="grid grid-cols-3 gap-3">
-                                <div class="bg-white/70 dark:bg-chatgpt-dark-user/70 rounded-lg p-3 text-center border border-blue-100 dark:border-blue-800">
-                                    <div class="text-2xl font-bold text-blue-600 dark:text-blue-400">{{ storageInfo.usageInMB }}</div>
-                                    <div class="text-xs text-gray-600 dark:text-gray-400 mt-1">已使用 (MB)</div>
+                                <div class="bg-white/70 rounded-lg p-3 text-center border border-blue-100">
+                                    <div class="text-2xl font-bold text-blue-600">{{ storageInfo.usageInMB }}</div>
+                                    <div class="text-xs text-gray-600 mt-1">已使用 (MB)</div>
                                 </div>
-                                <div class="bg-white/70 dark:bg-chatgpt-dark-user/70 rounded-lg p-3 text-center border border-emerald-100 dark:border-emerald-800">
-                                    <div class="text-2xl font-bold text-emerald-600 dark:text-emerald-400">{{ storageInfo.quotaInMB }}</div>
-                                    <div class="text-xs text-gray-600 dark:text-gray-400 mt-1">总配额 (MB)</div>
+                                <div class="bg-white/70 rounded-lg p-3 text-center border border-emerald-100">
+                                    <div class="text-2xl font-bold text-emerald-600">{{ storageInfo.quotaInMB }}</div>
+                                    <div class="text-xs text-gray-600 mt-1">总配额 (MB)</div>
                                 </div>
-                                <div class="bg-white/70 dark:bg-chatgpt-dark-user/70 rounded-lg p-3 text-center border border-purple-100 dark:border-purple-800">
-                                    <div class="text-2xl font-bold text-purple-600 dark:text-purple-400">{{ storageInfo.percentUsed }}%</div>
-                                    <div class="text-xs text-gray-600 dark:text-gray-400 mt-1">使用率</div>
+                                <div class="bg-white/70 rounded-lg p-3 text-center border border-purple-100">
+                                    <div class="text-2xl font-bold text-purple-600">{{ storageInfo.percentUsed }}%</div>
+                                    <div class="text-xs text-gray-600 mt-1">使用率</div>
                                 </div>
                             </div>
 
                             <!-- 进度条 -->
-                            <div class="bg-white/50 dark:bg-chatgpt-dark-user/50 rounded-lg p-3">
-                                <div class="flex justify-between text-xs text-gray-600 dark:text-gray-400 mb-2">
+                            <div class="bg-white/50 rounded-lg p-3">
+                                <div class="flex justify-between text-xs text-gray-600 mb-2">
                                     <span>存储使用进度</span>
                                     <span>{{ storageInfo.usageInMB }} MB / {{ storageInfo.quotaInMB }} MB</span>
                                 </div>
-                                <div class="w-full bg-gray-200 dark:bg-gray-600 rounded-full h-2.5 overflow-hidden">
+                                <div class="w-full bg-gray-200 rounded-full h-2.5 overflow-hidden">
                                     <div
                                         class="h-full rounded-full transition-all duration-500"
                                         :class="[
@@ -549,20 +549,20 @@ const handleClearAllData = () => {
                             </div>
 
                             <!-- 数据详情 -->
-                            <div v-if="detailedStats" class="bg-white/50 dark:bg-chatgpt-dark-user/50 rounded-lg p-3">
-                                <div class="text-sm font-semibold text-gray-700 dark:text-chatgpt-dark-text mb-2">数据详情</div>
+                            <div v-if="detailedStats" class="bg-white/50 rounded-lg p-3">
+                                <div class="text-sm font-semibold text-gray-700 mb-2">数据详情</div>
                                 <div class="grid grid-cols-3 gap-2 text-center">
                                     <div>
-                                        <div class="text-lg font-bold text-gray-800 dark:text-chatgpt-dark-text">{{ detailedStats.totalChats }}</div>
-                                        <div class="text-xs text-gray-500 dark:text-gray-400">对话数量</div>
+                                        <div class="text-lg font-bold text-gray-800">{{ detailedStats.totalChats }}</div>
+                                        <div class="text-xs text-gray-500">对话数量</div>
                                     </div>
                                     <div>
-                                        <div class="text-lg font-bold text-gray-800 dark:text-chatgpt-dark-text">{{ detailedStats.totalMessages }}</div>
-                                        <div class="text-xs text-gray-500 dark:text-gray-400">消息总数</div>
+                                        <div class="text-lg font-bold text-gray-800">{{ detailedStats.totalMessages }}</div>
+                                        <div class="text-xs text-gray-500">消息总数</div>
                                     </div>
                                     <div>
-                                        <div class="text-lg font-bold text-gray-800 dark:text-chatgpt-dark-text">{{ detailedStats.estimatedSize }}</div>
-                                        <div class="text-xs text-gray-500 dark:text-gray-400">估算大小 (MB)</div>
+                                        <div class="text-lg font-bold text-gray-800">{{ detailedStats.estimatedSize }}</div>
+                                        <div class="text-xs text-gray-500">估算大小 (MB)</div>
                                     </div>
                                 </div>
                             </div>
@@ -571,14 +571,14 @@ const handleClearAllData = () => {
                             <div class="flex gap-2 pt-2">
                                 <button
                                     @click="handleClearAllData"
-                                    class="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-red-50 dark:bg-red-900/30 text-red-600 dark:text-red-400 border border-red-200 dark:border-red-800 rounded-lg hover:bg-red-100 dark:hover:bg-red-900/40 transition-colors text-sm font-medium"
+                                    class="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-red-50 text-red-600 border border-red-200 rounded-lg hover:bg-red-100 transition-colors text-sm font-medium"
                                 >
                                     <Trash2 :size="16" />
                                     清空所有数据
                                 </button>
                                 <button
                                     @click="refreshStorageInfo"
-                                    class="px-4 py-2.5 bg-white dark:bg-chatgpt-dark-user text-blue-600 dark:text-blue-400 border border-blue-200 dark:border-blue-800 rounded-lg hover:bg-blue-50 dark:hover:bg-blue-900/30 transition-colors text-sm font-medium"
+                                    class="px-4 py-2.5 bg-white text-blue-600 border border-blue-200 rounded-lg hover:bg-blue-50 transition-colors text-sm font-medium"
                                 >
                                     刷新统计
                                 </button>
@@ -586,27 +586,27 @@ const handleClearAllData = () => {
                         </div>
 
                         <!-- 加载中 -->
-                        <div v-else class="text-center py-8 text-gray-500 dark:text-gray-400">
+                        <div v-else class="text-center py-8 text-gray-500">
                             <RefreshCw :size="24" class="animate-spin mx-auto mb-2" />
                             <p class="text-sm">加载存储信息中...</p>
                         </div>
                     </div>
 
-                    <div class="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-xl p-4 flex gap-3">
-                        <AlertCircle :size="20" class="text-yellow-600 dark:text-yellow-400 shrink-0 mt-0.5" />
-                        <div class="text-sm text-yellow-800 dark:text-yellow-200">
+                    <div class="bg-yellow-50 border border-yellow-200 rounded-xl p-4 flex gap-3">
+                        <AlertCircle :size="20" class="text-yellow-600 shrink-0 mt-0.5" />
+                        <div class="text-sm text-yellow-800">
                             <p class="font-semibold mb-1">自动清理说明</p>
                             <p>系统会自动删除超过设定天数的对话记录，以节省存储空间。</p>
                         </div>
                     </div>
 
                     <div>
-                        <label class="block text-sm font-semibold text-gray-700 dark:text-chatgpt-dark-text mb-3">
+                        <label class="block text-sm font-semibold text-gray-700 mb-3">
                             数据保存时间
                         </label>
                         <div class="space-y-3">
-                            <label class="flex items-center p-4 border-2 rounded-lg cursor-pointer transition-all hover:border-gray-300 dark:hover:border-gray-600"
-                                :class="localDataRetention === 3 ? 'border-chatgpt-accent bg-emerald-50 dark:bg-emerald-900/20' : 'border-gray-200 dark:border-chatgpt-dark-border'"
+                            <label class="flex items-center p-4 border-2 rounded-lg cursor-pointer transition-all hover:border-gray-300"
+                                :class="localDataRetention === 3 ? 'border-chatgpt-accent bg-emerald-50' : 'border-gray-200'"
                             >
                                 <input
                                     type="radio"
@@ -615,13 +615,13 @@ const handleClearAllData = () => {
                                     class="w-4 h-4 text-chatgpt-accent focus:ring-chatgpt-accent"
                                 />
                                 <div class="ml-3 flex-1">
-                                    <div class="font-semibold text-gray-900 dark:text-chatgpt-dark-text">3天</div>
-                                    <div class="text-sm text-gray-500 dark:text-gray-400">保留最近3天的对话记录</div>
+                                    <div class="font-semibold text-gray-900">3天</div>
+                                    <div class="text-sm text-gray-500">保留最近3天的对话记录</div>
                                 </div>
                             </label>
 
-                            <label class="flex items-center p-4 border-2 rounded-lg cursor-pointer transition-all hover:border-gray-300 dark:hover:border-gray-600"
-                                :class="localDataRetention === 7 ? 'border-chatgpt-accent bg-emerald-50 dark:bg-emerald-900/20' : 'border-gray-200 dark:border-chatgpt-dark-border'"
+                            <label class="flex items-center p-4 border-2 rounded-lg cursor-pointer transition-all hover:border-gray-300"
+                                :class="localDataRetention === 7 ? 'border-chatgpt-accent bg-emerald-50' : 'border-gray-200'"
                             >
                                 <input
                                     type="radio"
@@ -630,13 +630,13 @@ const handleClearAllData = () => {
                                     class="w-4 h-4 text-chatgpt-accent focus:ring-chatgpt-accent"
                                 />
                                 <div class="ml-3 flex-1">
-                                    <div class="font-semibold text-gray-900 dark:text-chatgpt-dark-text">7天（推荐）</div>
-                                    <div class="text-sm text-gray-500 dark:text-gray-400">保留最近一周的对话记录</div>
+                                    <div class="font-semibold text-gray-900">7天（推荐）</div>
+                                    <div class="text-sm text-gray-500">保留最近一周的对话记录</div>
                                 </div>
                             </label>
 
-                            <label class="flex items-center p-4 border-2 rounded-lg cursor-pointer transition-all hover:border-gray-300 dark:hover:border-gray-600"
-                                :class="localDataRetention === 30 ? 'border-chatgpt-accent bg-emerald-50 dark:bg-emerald-900/20' : 'border-gray-200 dark:border-chatgpt-dark-border'"
+                            <label class="flex items-center p-4 border-2 rounded-lg cursor-pointer transition-all hover:border-gray-300"
+                                :class="localDataRetention === 30 ? 'border-chatgpt-accent bg-emerald-50' : 'border-gray-200'"
                             >
                                 <input
                                     type="radio"
@@ -645,8 +645,8 @@ const handleClearAllData = () => {
                                     class="w-4 h-4 text-chatgpt-accent focus:ring-chatgpt-accent"
                                 />
                                 <div class="ml-3 flex-1">
-                                    <div class="font-semibold text-gray-900 dark:text-chatgpt-dark-text">30天</div>
-                                    <div class="text-sm text-gray-500 dark:text-gray-400">保留最近一个月的对话记录</div>
+                                    <div class="font-semibold text-gray-900">30天</div>
+                                    <div class="text-sm text-gray-500">保留最近一个月的对话记录</div>
                                 </div>
                             </label>
                         </div>

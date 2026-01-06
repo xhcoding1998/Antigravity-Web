@@ -1,13 +1,16 @@
 <script setup>
 import { ref, watch, computed, onMounted, onUnmounted } from 'vue';
-import { Send, X } from 'lucide-vue-next';
+import { Send, X, MessageSquare, MessageSquareOff, GitBranch } from 'lucide-vue-next';
 
 const props = defineProps({
     disabled: Boolean,
-    modelName: String
+    modelName: String,
+    contextEnabled: Boolean,
+    isDrawingModel: Boolean,
+    diagramEnabled: Boolean
 });
 
-const emit = defineEmits(['send']);
+const emit = defineEmits(['send', 'update:contextEnabled', 'update:diagramEnabled']);
 
 const input = ref('');
 const images = ref([]);
@@ -23,6 +26,18 @@ const displayName = computed(() => {
     return 'AI';
 });
 
+// 切换上下文开关
+const toggleContext = () => {
+    if (!props.isDrawingModel) {  // 绘图模型不允许切换
+        emit('update:contextEnabled', !props.contextEnabled);
+    }
+};
+
+// 切换图表渲染开关
+const toggleDiagram = () => {
+    emit('update:diagramEnabled', !props.diagramEnabled);
+};
+
 const handleSend = () => {
     if ((!input.value.trim() && images.value.length === 0) || props.disabled) return;
     emit('send', input.value, [...images.value]);
@@ -30,6 +45,33 @@ const handleSend = () => {
     images.value = [];
     if (textareaRef.value) {
         textareaRef.value.style.height = 'auto';
+    }
+};
+
+// 处理键盘事件 - 支持 Ctrl+Enter 换行
+const handleKeyDown = (event) => {
+    if (event.key === 'Enter') {
+        if (event.ctrlKey || event.metaKey) {
+            // Ctrl+Enter 或 Cmd+Enter: 插入换行符
+            event.preventDefault();
+            const textarea = event.target;
+            const start = textarea.selectionStart;
+            const end = textarea.selectionEnd;
+            const value = input.value;
+
+            // 在光标位置插入换行符
+            input.value = value.substring(0, start) + '\n' + value.substring(end);
+
+            // 恢复光标位置
+            nextTick(() => {
+                textarea.selectionStart = textarea.selectionEnd = start + 1;
+                adjustHeight();
+            });
+        } else {
+            // 普通 Enter: 发送消息
+            event.preventDefault();
+            handleSend();
+        }
     }
 };
 
@@ -93,28 +135,84 @@ onUnmounted(() => {
 });
 
 watch(input, adjustHeight);
+
+// 暴露方法供父组件调用（用于编辑功能）
+const setEditContent = (content, editImages = []) => {
+    input.value = content;
+    images.value = [...editImages];
+    // 自动聚焦到输入框
+    if (textareaRef.value) {
+        textareaRef.value.focus();
+        adjustHeight();
+    }
+};
+
+defineExpose({
+    setEditContent
+});
 </script>
 
 <template>
-    <div class="absolute bottom-0 left-0 w-full bg-gradient-to-t from-white via-white to-transparent pt-8 px-6 md:px-4">
+    <div class="absolute bottom-0 left-0 w-full bg-gradient-to-t from-white dark:from-chatgpt-dark-main via-white dark:via-chatgpt-dark-main to-transparent pt-8 px-6 md:px-4 transition-colors duration-200">
         <div class="max-w-4xl mx-auto pb-3 md:pb-5 flex flex-col gap-2">
 
+            <!-- Context Toggle -->
+            <div class="flex items-center justify-between px-2 gap-3">
+                <!-- Context Toggle Button -->
+                <button
+                    @click="toggleContext"
+                    :disabled="isDrawingModel"
+                    :class="[
+                        'flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium transition-all duration-200',
+                        isDrawingModel
+                            ? 'bg-gray-100 dark:bg-gray-700 text-gray-400 dark:text-gray-500 cursor-not-allowed'
+                            : contextEnabled
+                                ? 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-200 dark:hover:bg-emerald-900/40'
+                                : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600'
+                    ]"
+                    :title="isDrawingModel ? '绘图模型不支持上下文' : (contextEnabled ? '点击关闭上下文' : '点击开启上下文')"
+                >
+                    <MessageSquare v-if="contextEnabled" :size="14" />
+                    <MessageSquareOff v-else :size="14" />
+                    <span>{{ isDrawingModel ? '绘图模式' : (contextEnabled ? '上下文' : '上下文') }}</span>
+                </button>
+
+                <!-- Diagram Rendering Toggle Button -->
+                <button
+                    @click="toggleDiagram"
+                    :class="[
+                        'flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium transition-all duration-200',
+                        diagramEnabled
+                            ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 hover:bg-blue-200 dark:hover:bg-blue-900/40'
+                            : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600'
+                    ]"
+                    :title="diagramEnabled ? '点击关闭图表渲染' : '点击开启图表渲染'"
+                >
+                    <GitBranch :size="14" />
+                    <span>{{ diagramEnabled ? '图表渲染' : '图表渲染' }}</span>
+                </button>
+
+                <div class="flex-1 text-xs text-chatgpt-subtext dark:text-chatgpt-dark-subtext text-right">
+                    {{ diagramEnabled ? '代码块中的流程图将被渲染' : '仅显示代码文本' }}
+                </div>
+            </div>
+
             <!-- Main Input Container -->
-            <div class="relative flex flex-col w-full bg-white border-2 border-chatgpt-border rounded-3xl shadow-elevated transition-all duration-300 focus-within:border-chatgpt-accent focus-within:shadow-xl">
+            <div class="relative flex flex-col w-full bg-white dark:bg-chatgpt-dark-input border-2 border-chatgpt-border dark:border-chatgpt-dark-border rounded-3xl shadow-elevated dark:shadow-dark-elevated transition-all duration-300 focus-within:border-chatgpt-accent dark:focus-within:border-chatgpt-dark-accent focus-within:shadow-xl dark:focus-within:shadow-dark-elevated">
 
                 <!-- Image Previews Above Input -->
-                <div v-if="images.length > 0" class="flex flex-wrap gap-3 p-4 border-b border-chatgpt-border/40">
-                    <div v-for="(img, idx) in images" :key="idx" class="relative w-24 h-24 group">
-                        <img :src="img" class="w-full h-full object-cover rounded-2xl border-2 border-chatgpt-border shadow-card" />
+                <div v-if="images.length > 0" class="flex flex-wrap gap-3 p-4 border-b border-chatgpt-border/40 dark:border-chatgpt-dark-border/40">
+                    <div v-for="(img, idx) in images" :key="idx" class="relative group">
+                        <img :src="img" class="w-24 h-24 object-contain rounded-2xl border-2 border-chatgpt-border dark:border-chatgpt-dark-border shadow-card dark:shadow-dark-card bg-gray-50 dark:bg-gray-800" />
                         <button
                             @click="removeImage(idx)"
-                            class="absolute -top-2 -right-2 bg-gray-900 hover:bg-red-500 text-white rounded-full p-1.5 shadow-elevated opacity-0 group-hover:opacity-100 transition-all duration-200"
+                            class="absolute -top-2 -right-2 bg-gray-900 dark:bg-gray-700 hover:bg-red-500 dark:hover:bg-red-600 text-white rounded-full p-1.5 shadow-elevated dark:shadow-dark-elevated opacity-0 group-hover:opacity-100 transition-all duration-200"
                             aria-label="删除图片"
                         >
                             <X :size="14" />
                         </button>
                     </div>
-                    <div v-if="images.length < MAX_IMAGES" class="w-24 h-24 rounded-2xl border-2 border-dashed border-gray-300 flex items-center justify-center text-gray-400 text-xs text-center px-2">
+                    <div v-if="images.length < MAX_IMAGES" class="w-24 h-24 rounded-2xl border-2 border-dashed border-gray-300 dark:border-gray-600 flex items-center justify-center text-gray-400 dark:text-gray-500 text-xs text-center px-2">
                         可粘贴<br />{{ MAX_IMAGES - images.length }} 张
                     </div>
                 </div>
@@ -125,25 +223,25 @@ watch(input, adjustHeight);
                         ref="textareaRef"
                         v-model="input"
                         rows="1"
-                        :placeholder="images.length > 0 ? `描述图片内容或提问...` : `给 ${displayName} 发消息... (可粘贴图片)`"
-                        @keydown.enter.prevent="handleSend"
-                        class="flex-1 resize-none border-0 bg-transparent p-3 md:p-3.5 focus:ring-0 focus:outline-none text-chatgpt-text placeholder-gray-400 text-[15px] max-h-48 custom-scrollbar leading-relaxed"
+                        :placeholder="images.length > 0 ? `描述图片内容或提问...` : `给 ${displayName} 发消息... (Ctrl+Enter 换行)`"
+                        @keydown="handleKeyDown"
+                        class="flex-1 resize-none border-0 bg-transparent p-3 md:p-3.5 focus:ring-0 focus:outline-none text-chatgpt-text dark:text-chatgpt-dark-text placeholder-gray-400 dark:placeholder-gray-500 text-[15px] max-h-48 custom-scrollbar leading-relaxed"
                         :disabled="disabled"
                     ></textarea>
 
                     <button
                         @click="handleSend"
                         :disabled="(!input.trim() && images.length === 0) || disabled"
-                        class="mb-1.5 p-2.5 rounded-xl transition-all duration-200 shadow-card"
-                        :class="input.trim() || images.length > 0 ? 'bg-chatgpt-accent hover:bg-emerald-600 text-white hover:shadow-elevated hover:scale-105' : 'bg-gray-100 text-gray-300 cursor-not-allowed'"
+                        class="mb-1.5 p-2.5 rounded-xl transition-all duration-200 shadow-card dark:shadow-dark-card"
+                        :class="input.trim() || images.length > 0 ? 'bg-chatgpt-accent dark:bg-chatgpt-dark-accent hover:bg-emerald-600 dark:hover:bg-emerald-500 text-white hover:shadow-elevated dark:hover:shadow-dark-elevated hover:scale-105' : 'bg-gray-100 dark:bg-gray-700 text-gray-300 dark:text-gray-500 cursor-not-allowed'"
                     >
                         <Send :size="20" />
                     </button>
                 </div>
             </div>
 
-            <p class="text-xs text-center text-chatgpt-subtext mt-1 px-4">
-                {{ displayName }} 可能会出错。请核对重要信息。{{ images.length === 0 ? ' 支持粘贴图片 (Ctrl+V)' : '' }}
+            <p class="text-xs text-center text-chatgpt-subtext dark:text-chatgpt-dark-subtext mt-1 px-4">
+                {{ displayName }} 可能会出错。请核对重要信息。支持粘贴图片 (Ctrl+V) · Ctrl+Enter 换行
             </p>
         </div>
     </div>
