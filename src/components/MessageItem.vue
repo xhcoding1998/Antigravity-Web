@@ -25,7 +25,9 @@ mermaid.initialize({
     startOnLoad: false,
     theme: 'default',
     securityLevel: 'loose',
-    fontSize: 14
+    fontSize: 14,
+    suppressErrors: true, // 禁止在页面底部显示错误
+    logLevel: 'error' // 只在控制台记录错误日志
 });
 
 const contentRef = ref(null);
@@ -93,6 +95,19 @@ const renderedContent = computed(() => {
     return md.render(cleanedContent.value);
 });
 
+// 清理 Mermaid 在 body 中插入的错误提示
+const cleanMermaidErrors = () => {
+    // 查找并删除 mermaid 在 body 中插入的错误 SVG
+    const errorSvgs = document.querySelectorAll('body > div[id^="d"]');
+    errorSvgs.forEach(errorDiv => {
+        // 检查是否包含 mermaid 错误特征
+        const svg = errorDiv.querySelector('svg[role="graphics-document document"][aria-roledescription="error"]');
+        if (svg) {
+            errorDiv.remove();
+        }
+    });
+};
+
 // 渲染 Mermaid 图表
 const renderMermaidDiagrams = async () => {
     if (!contentRef.value) return;
@@ -132,9 +147,52 @@ const renderMermaidDiagrams = async () => {
 
                 // 替换原来的代码块
                 parent.replaceWith(container);
+
+                // 清理可能插入的错误元素
+                cleanMermaidErrors();
             } catch (error) {
                 console.error('Mermaid rendering error:', error);
-                // 渲染失败时保留原代码块
+
+                // 清理 mermaid 在 body 中插入的错误提示
+                cleanMermaidErrors();
+
+                // HTML 转义函数
+                const escapeHtml = (text) => {
+                    const div = document.createElement('div');
+                    div.textContent = text;
+                    return div.innerHTML;
+                };
+
+                // 创建错误提示容器
+                const errorContainer = document.createElement('div');
+                errorContainer.className = 'mermaid-error bg-red-50 dark:bg-red-950/30 border-2 border-red-200 dark:border-red-800 p-4 rounded-xl my-2';
+                errorContainer.dataset.mermaidRendered = 'true';
+
+                // 错误信息
+                const errorMessage = document.createElement('div');
+                errorMessage.className = 'flex items-start gap-3 mb-3';
+                errorMessage.innerHTML = `
+                    <svg class="w-5 h-5 text-red-600 dark:text-red-400 shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                    </svg>
+                    <div class="flex-1">
+                        <div class="text-sm font-semibold text-red-800 dark:text-red-300 mb-1">Mermaid 图表渲染失败</div>
+                        <div class="text-xs text-red-700 dark:text-red-400">${escapeHtml(error.message || '语法错误，请检查图表代码')}</div>
+                    </div>
+                `;
+                errorContainer.appendChild(errorMessage);
+
+                // 原始代码块（折叠显示）
+                const codeBlock = document.createElement('details');
+                codeBlock.className = 'mt-2';
+                codeBlock.innerHTML = `
+                    <summary class="text-xs text-red-600 dark:text-red-400 cursor-pointer hover:text-red-700 dark:hover:text-red-300 font-medium">查看原始代码</summary>
+                    <pre class="mt-2 bg-gray-900 dark:bg-black text-gray-100 p-3 rounded-lg overflow-x-auto text-xs"><code>${escapeHtml(code)}</code></pre>
+                `;
+                errorContainer.appendChild(codeBlock);
+
+                // 替换原来的代码块
+                parent.replaceWith(errorContainer);
             }
         }
     }
@@ -262,16 +320,46 @@ watch([() => props.message.content, () => props.message.streaming], async () => 
     }
 }, { immediate: false });
 
+// MutationObserver 用于监听并清理 Mermaid 错误元素
+let errorObserver = null;
+
 // 首次渲染
 onMounted(() => {
     renderMermaidDiagrams();
     // 添加全局点击事件监听器,关闭右键菜单
     document.addEventListener('click', closeContextMenu);
+
+    // 创建 MutationObserver 监听 body 的子元素变化
+    errorObserver = new MutationObserver((mutations) => {
+        mutations.forEach((mutation) => {
+            mutation.addedNodes.forEach((node) => {
+                // 检查是否是 mermaid 错误元素
+                if (node.nodeType === 1 && node.id && node.id.startsWith('d')) {
+                    const svg = node.querySelector('svg[role="graphics-document document"][aria-roledescription="error"]');
+                    if (svg) {
+                        console.log('检测到 Mermaid 错误元素，自动清理');
+                        node.remove();
+                    }
+                }
+            });
+        });
+    });
+
+    // 开始监听 body 的子元素变化
+    errorObserver.observe(document.body, {
+        childList: true,
+        subtree: false
+    });
 });
 
 // 组件卸载时移除监听器
 onUnmounted(() => {
     document.removeEventListener('click', closeContextMenu);
+    // 停止监听并清理
+    if (errorObserver) {
+        errorObserver.disconnect();
+        errorObserver = null;
+    }
 });
 
 const isUser = computed(() => props.message.role === 'user');
