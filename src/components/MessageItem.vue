@@ -360,11 +360,60 @@ onUnmounted(() => {
         errorObserver.disconnect();
         errorObserver = null;
     }
+    // 清理 loading 文本切换定时器
+    if (loadingTextInterval) {
+        clearInterval(loadingTextInterval);
+        loadingTextInterval = null;
+    }
 });
 
 const isUser = computed(() => props.message.role === 'user');
 const copied = ref(false);
 const previewImage = ref(null);
+
+// 判断是否只有图片没有文本内容
+const hasOnlyImages = computed(() => {
+    return allImages.value.length > 0 && !cleanedContent.value.trim();
+});
+
+// 判断是否正在等待回复（消息为空且正在streaming）
+const isWaitingResponse = computed(() => {
+    return !isUser.value && props.message.streaming && !cleanedContent.value.trim() && allImages.value.length === 0;
+});
+
+// Loading 文本数组
+const loadingTexts = [
+    '思考中',
+    '正在分析',
+    '处理中',
+    '理解中',
+    '组织语言',
+    '准备回复'
+];
+
+// 随机选择一个 loading 文本
+const currentLoadingText = ref(loadingTexts[Math.floor(Math.random() * loadingTexts.length)]);
+
+// 定时切换 loading 文本
+let loadingTextInterval = null;
+
+// 监听 isWaitingResponse 状态，启动/停止 loading 文本切换
+watch(isWaitingResponse, (waiting) => {
+    if (waiting) {
+        // 开始切换 loading 文本
+        loadingTextInterval = setInterval(() => {
+            const currentIndex = loadingTexts.indexOf(currentLoadingText.value);
+            const nextIndex = (currentIndex + 1) % loadingTexts.length;
+            currentLoadingText.value = loadingTexts[nextIndex];
+        }, 2000); // 每2秒切换一次
+    } else {
+        // 停止切换
+        if (loadingTextInterval) {
+            clearInterval(loadingTextInterval);
+            loadingTextInterval = null;
+        }
+    }
+});
 
 const copyToClipboard = async () => {
     try {
@@ -505,11 +554,23 @@ const handleEdit = () => {
                     </div>
                 </div>
 
-                <!-- Text Content -->
-                <div ref="contentRef" class="prose prose-slate dark:prose-invert max-w-none break-words text-sm leading-[1.6] text-chatgpt-text dark:text-chatgpt-dark-text" v-html="renderedContent"></div>
+                <!-- Loading Effect (when waiting for response) -->
+                <div v-if="isWaitingResponse" class="flex items-center gap-2 text-chatgpt-subtext dark:text-chatgpt-dark-subtext">
+                    <div class="flex gap-1">
+                        <div class="w-2 h-2 bg-chatgpt-accent dark:bg-chatgpt-dark-accent rounded-full animate-bounce" style="animation-delay: 0ms"></div>
+                        <div class="w-2 h-2 bg-chatgpt-accent dark:bg-chatgpt-dark-accent rounded-full animate-bounce" style="animation-delay: 150ms"></div>
+                        <div class="w-2 h-2 bg-chatgpt-accent dark:bg-chatgpt-dark-accent rounded-full animate-bounce" style="animation-delay: 300ms"></div>
+                    </div>
+                    <Transition name="fade-text" mode="out-in">
+                        <span :key="currentLoadingText" class="text-sm italic">{{ currentLoadingText }}...</span>
+                    </Transition>
+                </div>
 
-                <!-- Streaming Cursor -->
-                <div v-if="!isUser && message.streaming" class="inline-block w-1.5 h-4 bg-chatgpt-accent dark:bg-chatgpt-dark-accent rounded-sm animate-pulse ml-0.5"></div>
+                <!-- Text Content -->
+                <div v-else ref="contentRef" class="prose prose-slate dark:prose-invert max-w-none break-words text-sm leading-[1.6] text-chatgpt-text dark:text-chatgpt-dark-text" v-html="renderedContent"></div>
+
+                <!-- Streaming Cursor (only show when content exists) -->
+                <div v-if="!isUser && message.streaming && cleanedContent.trim()" class="inline-block w-1.5 h-4 bg-chatgpt-accent dark:bg-chatgpt-dark-accent rounded-sm animate-pulse ml-0.5"></div>
 
                 <!-- Actions for AI messages (visible on hover) -->
                 <div v-if="!isUser && !message.streaming && message.content" class="flex items-center gap-0.5 mt-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -682,5 +743,32 @@ const handleEdit = () => {
 .prose img[src=""],
 .prose img:not([src]) {
     display: none;
+}
+
+/* Loading dots animation */
+@keyframes loading-bounce {
+    0%, 80%, 100% {
+        transform: translateY(0);
+        opacity: 0.4;
+    }
+    40% {
+        transform: translateY(-8px);
+        opacity: 1;
+    }
+}
+
+.animate-bounce {
+    animation: loading-bounce 1.4s infinite ease-in-out;
+}
+
+/* Loading text fade transition */
+.fade-text-enter-active,
+.fade-text-leave-active {
+    transition: opacity 0.3s ease;
+}
+
+.fade-text-enter-from,
+.fade-text-leave-to {
+    opacity: 0;
 }
 </style>

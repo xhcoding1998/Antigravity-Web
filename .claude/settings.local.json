@@ -22,7 +22,8 @@
       "Bash(dir:*)",
       "Bash(test:*)",
       "Bash(npm run dev)",
-      "Bash(pnpm install:*)"
+      "Bash(pnpm install:*)",
+      "Bash(cat:*)"
     ]
   }
 }

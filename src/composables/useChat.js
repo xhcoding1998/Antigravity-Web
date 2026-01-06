@@ -202,6 +202,15 @@ export function useChat() {
 
     watch(selectedModelId, async (newId) => {
         selectedModel.value = models.value.find(m => m.id === newId);
+
+        // 根据模型类型自动调整上下文开关
+        // 如果是图片模型，关闭上下文；否则开启上下文
+        if (isDrawingModel(newId)) {
+            contextEnabled.value = false;
+        } else {
+            contextEnabled.value = true;
+        }
+
         // 缓存选中的模型ID到 IndexedDB
         if (isDbReady.value) {
             try {
@@ -241,6 +250,12 @@ export function useChat() {
         history.value.unshift(newChat);
         currentChatId.value = id; // Fixed .ref bug
         messages.value = [];
+
+        // 重置开关状态为默认值
+        diagramEnabled.value = true;
+        // 如果是图片模型，关闭上下文；否则开启上下文
+        contextEnabled.value = !isDrawingModel(selectedModelId.value);
+
         return id;
     };
 
