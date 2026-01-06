@@ -1,0 +1,577 @@
+<script setup>
+import { ref, computed } from 'vue';
+import { X, Plus, Trash2, Edit2, Save, RotateCcw, AlertCircle } from 'lucide-vue-next';
+import Toast from './Toast.vue';
+import ConfirmDialog from './ConfirmDialog.vue';
+
+const props = defineProps({
+    models: Array,
+    apiConfig: Object,
+    dataRetention: Number,
+    selectedModelId: String
+});
+
+const emit = defineEmits(['close', 'update:models', 'update:apiConfig', 'update:dataRetention', 'resetAll']);
+
+// 标签页
+const activeTab = ref('models');
+
+// 模型管理
+const localModels = ref([...props.models]);
+const editingModelId = ref(null);
+const editingModel = ref(null);
+
+// API配置
+const localApiConfig = ref({
+    baseUrl: props.apiConfig?.baseUrl || '',
+    apiKey: props.apiConfig?.apiKey || ''
+});
+
+// 数据保存时间
+const localDataRetention = ref(props.dataRetention || 7);
+
+// Toast 提示
+const showToast = ref(false);
+const toastMessage = ref('');
+const toastType = ref('info');
+
+// 确认对话框
+const showConfirm = ref(false);
+const confirmConfig = ref({
+    title: '',
+    message: '',
+    type: 'warning',
+    onConfirm: null
+});
+
+const showToastMessage = (message, type = 'error') => {
+    toastMessage.value = message;
+    toastType.value = type;
+    showToast.value = true;
+};
+
+const showConfirmDialog = (title, message, type, onConfirm) => {
+    confirmConfig.value = { title, message, type, onConfirm };
+    showConfirm.value = true;
+};
+
+const handleConfirm = () => {
+    if (confirmConfig.value.onConfirm) {
+        confirmConfig.value.onConfirm();
+    }
+};
+
+// 添加新模型
+const showAddModel = ref(false);
+const newModel = ref({
+    id: '',
+    name: '',
+    desc: ''
+});
+
+const startAddModel = () => {
+    newModel.value = { id: '', name: '', desc: '' };
+    showAddModel.value = true;
+};
+
+const addModel = () => {
+    if (!newModel.value.id || !newModel.value.name) {
+        showToastMessage('请填写模型ID和名称');
+        return;
+    }
+
+    if (localModels.value.some(m => m.id === newModel.value.id)) {
+        showToastMessage('模型ID已存在');
+        return;
+    }
+
+    localModels.value.push({ ...newModel.value });
+    showAddModel.value = false;
+    newModel.value = { id: '', name: '', desc: '' };
+    showToastMessage('模型添加成功', 'success');
+};
+
+// 编辑模型
+const startEditModel = (model) => {
+    editingModelId.value = model.id;
+    editingModel.value = { ...model };
+};
+
+const saveEditModel = () => {
+    const index = localModels.value.findIndex(m => m.id === editingModelId.value);
+    if (index !== -1) {
+        localModels.value[index] = { ...editingModel.value };
+    }
+    editingModelId.value = null;
+    editingModel.value = null;
+    showToastMessage('模型更新成功', 'success');
+};
+
+const cancelEdit = () => {
+    editingModelId.value = null;
+    editingModel.value = null;
+};
+
+// 删除模型
+const deleteModel = (id) => {
+    if (localModels.value.length <= 1) {
+        showToastMessage('至少需要保留一个模型');
+        return;
+    }
+
+    // 检查是否是当前选中的模型
+    if (id === props.selectedModelId) {
+        showToastMessage('不能删除当前选中的模型，请先切换到其他模型');
+        return;
+    }
+
+    showConfirmDialog(
+        '删除模型',
+        '确定要删除这个模型吗？',
+        'danger',
+        () => {
+            localModels.value = localModels.value.filter(m => m.id !== id);
+            showToastMessage('模型已删除', 'success');
+        }
+    );
+};
+
+// 保存所有设置
+const saveSettings = () => {
+    emit('update:models', localModels.value);
+    emit('update:apiConfig', localApiConfig.value);
+    emit('update:dataRetention', localDataRetention.value);
+    emit('close');
+};
+
+// 恢复默认设置
+const resetToDefaults = () => {
+    showConfirmDialog(
+        '恢复默认设置',
+        '确定要恢复所有默认设置吗？这将清空所有自定义配置。',
+        'danger',
+        () => {
+            emit('resetAll');
+            emit('close');
+        }
+    );
+};
+</script>
+
+<template>
+    <!-- 模态框背景 -->
+    <div
+        class="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 backdrop-blur-sm"
+        @click.self="emit('close')"
+    >
+        <!-- 设置面板 -->
+        <Transition name="modal-content">
+            <div class="bg-white rounded-2xl shadow-2xl w-full max-w-3xl max-h-[85vh] flex flex-col">
+                    <!-- 头部 -->
+                    <div class="flex items-center justify-between p-6 border-b border-gray-200">
+                        <h2 class="text-2xl font-bold text-gray-900">设置</h2>
+                        <button
+                            @click="emit('close')"
+                            class="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                            aria-label="关闭"
+                        >
+                            <X :size="24" />
+                        </button>
+                    </div>
+
+            <!-- 标签页导航 -->
+            <div class="flex border-b border-gray-200 px-6">
+                <button
+                    @click="activeTab = 'models'"
+                    :class="[
+                        'px-4 py-3 text-sm font-medium transition-colors relative',
+                        activeTab === 'models'
+                            ? 'text-chatgpt-accent'
+                            : 'text-gray-600 hover:text-gray-900'
+                    ]"
+                >
+                    模型管理
+                    <div
+                        v-if="activeTab === 'models'"
+                        class="absolute bottom-0 left-0 right-0 h-0.5 bg-chatgpt-accent"
+                    ></div>
+                </button>
+                <button
+                    @click="activeTab = 'api'"
+                    :class="[
+                        'px-4 py-3 text-sm font-medium transition-colors relative',
+                        activeTab === 'api'
+                            ? 'text-chatgpt-accent'
+                            : 'text-gray-600 hover:text-gray-900'
+                    ]"
+                >
+                    API配置
+                    <div
+                        v-if="activeTab === 'api'"
+                        class="absolute bottom-0 left-0 right-0 h-0.5 bg-chatgpt-accent"
+                    ></div>
+                </button>
+                <button
+                    @click="activeTab = 'data'"
+                    :class="[
+                        'px-4 py-3 text-sm font-medium transition-colors relative',
+                        activeTab === 'data'
+                            ? 'text-chatgpt-accent'
+                            : 'text-gray-600 hover:text-gray-900'
+                    ]"
+                >
+                    数据管理
+                    <div
+                        v-if="activeTab === 'data'"
+                        class="absolute bottom-0 left-0 right-0 h-0.5 bg-chatgpt-accent"
+                    ></div>
+                </button>
+            </div>
+
+            <!-- 内容区域 -->
+            <div class="flex-1 overflow-y-auto p-6">
+                <!-- 模型管理标签页 -->
+                <div v-if="activeTab === 'models'" class="space-y-4">
+                    <div class="flex items-center justify-between mb-4">
+                        <div>
+                            <p class="text-sm text-gray-600">管理您的AI模型列表</p>
+                            <p class="text-xs text-gray-400 mt-1">共 {{ localModels.length }} 个模型</p>
+                        </div>
+                        <button
+                            @click="startAddModel"
+                            class="flex items-center gap-2 px-4 py-2 bg-chatgpt-accent text-white rounded-lg hover:bg-emerald-600 transition-colors text-sm font-medium shadow-sm hover:shadow-md"
+                        >
+                            <Plus :size="16" />
+                            添加模型
+                        </button>
+                    </div>
+
+                    <!-- 模型列表 -->
+                    <div class="grid gap-3">
+                        <div
+                            v-for="model in localModels"
+                            :key="model.id"
+                            :class="[
+                                'border rounded-xl p-4 hover:shadow-sm transition-all',
+                                model.id === props.selectedModelId
+                                    ? 'border-chatgpt-accent bg-gradient-to-br from-emerald-50 to-teal-50/50 shadow-sm'
+                                    : 'border-gray-200 bg-gradient-to-br from-white to-gray-50/50 hover:border-chatgpt-accent/50'
+                            ]"
+                        >
+                            <div v-if="editingModelId === model.id" class="space-y-3">
+                                <div>
+                                    <label class="block text-xs font-semibold text-gray-600 mb-1">模型ID</label>
+                                    <input
+                                        v-model="editingModel.id"
+                                        disabled
+                                        class="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-50 text-sm"
+                                        placeholder="模型ID"
+                                    />
+                                </div>
+                                <div>
+                                    <label class="block text-xs font-semibold text-gray-600 mb-1">模型名称</label>
+                                    <input
+                                        v-model="editingModel.name"
+                                        class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:border-chatgpt-accent focus:ring-1 focus:ring-chatgpt-accent text-sm"
+                                        placeholder="模型名称"
+                                    />
+                                </div>
+                                <div>
+                                    <label class="block text-xs font-semibold text-gray-600 mb-1">模型描述</label>
+                                    <input
+                                        v-model="editingModel.desc"
+                                        class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:border-chatgpt-accent focus:ring-1 focus:ring-chatgpt-accent text-sm"
+                                        placeholder="模型描述"
+                                    />
+                                </div>
+                                <div class="flex gap-2 pt-2">
+                                    <button
+                                        @click="saveEditModel"
+                                        class="flex items-center gap-1 px-4 py-2 bg-chatgpt-accent text-white rounded-lg hover:bg-emerald-600 transition-colors text-sm font-medium"
+                                    >
+                                        <Save :size="14" />
+                                        保存
+                                    </button>
+                                    <button
+                                        @click="cancelEdit"
+                                        class="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors text-sm"
+                                    >
+                                        取消
+                                    </button>
+                                </div>
+                            </div>
+                            <div v-else class="flex items-start justify-between gap-4">
+                                <div class="flex-1 min-w-0">
+                                    <div class="flex items-center gap-2 mb-1">
+                                        <div class="font-semibold text-gray-900 text-base">{{ model.name }}</div>
+                                        <div class="px-2 py-0.5 bg-gray-100 rounded text-xs text-gray-600 font-mono">{{ model.id }}</div>
+                                        <div v-if="model.id === props.selectedModelId" class="px-2 py-0.5 bg-chatgpt-accent text-white rounded text-xs font-medium">
+                                            当前使用
+                                        </div>
+                                    </div>
+                                    <div class="text-sm text-gray-500">{{ model.desc || '暂无描述' }}</div>
+                                </div>
+                                <div class="flex gap-1 shrink-0">
+                                    <button
+                                        @click="startEditModel(model)"
+                                        class="p-2 hover:bg-blue-50 rounded-lg transition-colors text-gray-600 hover:text-blue-600"
+                                        title="编辑"
+                                    >
+                                        <Edit2 :size="16" />
+                                    </button>
+                                    <button
+                                        @click="deleteModel(model.id)"
+                                        :disabled="model.id === props.selectedModelId"
+                                        :class="[
+                                            'p-2 rounded-lg transition-colors',
+                                            model.id === props.selectedModelId
+                                                ? 'text-gray-300 cursor-not-allowed'
+                                                : 'hover:bg-red-50 text-gray-600 hover:text-red-500'
+                                        ]"
+                                        :title="model.id === props.selectedModelId ? '不能删除当前使用的模型' : '删除'"
+                                    >
+                                        <Trash2 :size="16" />
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 添加模型表单 -->
+                    <div v-if="showAddModel" class="border-2 border-dashed border-chatgpt-accent rounded-xl p-5 bg-gradient-to-br from-emerald-50/50 to-teal-50/30 space-y-4">
+                        <div class="flex items-center justify-between mb-2">
+                            <h4 class="font-semibold text-gray-900 flex items-center gap-2">
+                                <Plus :size="18" class="text-chatgpt-accent" />
+                                添加新模型
+                            </h4>
+                        </div>
+                        <div>
+                            <label class="block text-xs font-semibold text-gray-600 mb-1">模型ID *</label>
+                            <input
+                                v-model="newModel.id"
+                                class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:border-chatgpt-accent focus:ring-2 focus:ring-chatgpt-accent/20 text-sm"
+                                placeholder="例如：gpt-4"
+                            />
+                        </div>
+                        <div>
+                            <label class="block text-xs font-semibold text-gray-600 mb-1">模型名称 *</label>
+                            <input
+                                v-model="newModel.name"
+                                class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:border-chatgpt-accent focus:ring-2 focus:ring-chatgpt-accent/20 text-sm"
+                                placeholder="例如：GPT-4"
+                            />
+                        </div>
+                        <div>
+                            <label class="block text-xs font-semibold text-gray-600 mb-1">模型描述</label>
+                            <input
+                                v-model="newModel.desc"
+                                class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:border-chatgpt-accent focus:ring-2 focus:ring-chatgpt-accent/20 text-sm"
+                                placeholder="例如：最强大的语言模型"
+                            />
+                        </div>
+                        <div class="flex gap-2 pt-2">
+                            <button
+                                @click="addModel"
+                                class="flex items-center gap-2 px-5 py-2.5 bg-chatgpt-accent text-white rounded-lg hover:bg-emerald-600 transition-colors text-sm font-medium shadow-sm hover:shadow-md"
+                            >
+                                <Plus :size="16" />
+                                添加
+                            </button>
+                            <button
+                                @click="showAddModel = false"
+                                class="px-5 py-2.5 bg-white border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors text-sm"
+                            >
+                                取消
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- API配置标签页 -->
+                <div v-if="activeTab === 'api'" class="space-y-6">
+                    <div class="bg-blue-50 border border-blue-200 rounded-xl p-4 flex gap-3">
+                        <AlertCircle :size="20" class="text-blue-600 shrink-0 mt-0.5" />
+                        <div class="text-sm text-blue-800">
+                            <p class="font-semibold mb-1">注意事项</p>
+                            <p>修改API配置后需要重新发送消息才会生效。请确保填写正确的API地址和密钥。</p>
+                        </div>
+                    </div>
+
+                    <div class="space-y-4">
+                        <div>
+                            <label class="block text-sm font-semibold text-gray-700 mb-2">
+                                API地址 (Base URL)
+                            </label>
+                            <input
+                                v-model="localApiConfig.baseUrl"
+                                type="text"
+                                class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:border-chatgpt-accent focus:ring-2 focus:ring-chatgpt-accent/20 text-sm font-mono"
+                                placeholder="http://127.0.0.1:8045/v1/chat/completions"
+                            />
+                            <p class="text-xs text-gray-500 mt-1">API服务器的完整地址</p>
+                        </div>
+
+                        <div>
+                            <label class="block text-sm font-semibold text-gray-700 mb-2">
+                                API密钥 (API Key)
+                            </label>
+                            <input
+                                v-model="localApiConfig.apiKey"
+                                type="password"
+                                class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:border-chatgpt-accent focus:ring-2 focus:ring-chatgpt-accent/20 text-sm font-mono"
+                                placeholder="sk-..."
+                            />
+                            <p class="text-xs text-gray-500 mt-1">您的API访问密钥</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 数据管理标签页 -->
+                <div v-if="activeTab === 'data'" class="space-y-6">
+                    <div class="bg-yellow-50 border border-yellow-200 rounded-xl p-4 flex gap-3">
+                        <AlertCircle :size="20" class="text-yellow-600 shrink-0 mt-0.5" />
+                        <div class="text-sm text-yellow-800">
+                            <p class="font-semibold mb-1">自动清理说明</p>
+                            <p>系统会自动删除超过设定天数的对话记录，以节省存储空间。</p>
+                        </div>
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-semibold text-gray-700 mb-3">
+                            数据保存时间
+                        </label>
+                        <div class="space-y-3">
+                            <label class="flex items-center p-4 border-2 rounded-lg cursor-pointer transition-all hover:border-gray-300"
+                                :class="localDataRetention === 3 ? 'border-chatgpt-accent bg-emerald-50' : 'border-gray-200'"
+                            >
+                                <input
+                                    type="radio"
+                                    v-model.number="localDataRetention"
+                                    :value="3"
+                                    class="w-4 h-4 text-chatgpt-accent focus:ring-chatgpt-accent"
+                                />
+                                <div class="ml-3 flex-1">
+                                    <div class="font-semibold text-gray-900">3天</div>
+                                    <div class="text-sm text-gray-500">保留最近3天的对话记录</div>
+                                </div>
+                            </label>
+
+                            <label class="flex items-center p-4 border-2 rounded-lg cursor-pointer transition-all hover:border-gray-300"
+                                :class="localDataRetention === 7 ? 'border-chatgpt-accent bg-emerald-50' : 'border-gray-200'"
+                            >
+                                <input
+                                    type="radio"
+                                    v-model.number="localDataRetention"
+                                    :value="7"
+                                    class="w-4 h-4 text-chatgpt-accent focus:ring-chatgpt-accent"
+                                />
+                                <div class="ml-3 flex-1">
+                                    <div class="font-semibold text-gray-900">7天（推荐）</div>
+                                    <div class="text-sm text-gray-500">保留最近一周的对话记录</div>
+                                </div>
+                            </label>
+
+                            <label class="flex items-center p-4 border-2 rounded-lg cursor-pointer transition-all hover:border-gray-300"
+                                :class="localDataRetention === 30 ? 'border-chatgpt-accent bg-emerald-50' : 'border-gray-200'"
+                            >
+                                <input
+                                    type="radio"
+                                    v-model.number="localDataRetention"
+                                    :value="30"
+                                    class="w-4 h-4 text-chatgpt-accent focus:ring-chatgpt-accent"
+                                />
+                                <div class="ml-3 flex-1">
+                                    <div class="font-semibold text-gray-900">30天</div>
+                                    <div class="text-sm text-gray-500">保留最近一个月的对话记录</div>
+                                </div>
+                            </label>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 底部操作栏 -->
+            <div class="flex items-center justify-between p-6 border-t border-gray-200 bg-gray-50">
+                <button
+                    @click="resetToDefaults"
+                    class="flex items-center gap-2 px-4 py-2 text-gray-700 hover:bg-gray-200 rounded-lg transition-colors text-sm font-medium"
+                >
+                    <RotateCcw :size="16" />
+                    恢复默认
+                </button>
+                <div class="flex gap-3">
+                    <button
+                        @click="emit('close')"
+                        class="px-6 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors text-sm font-medium"
+                    >
+                        取消
+                    </button>
+                    <button
+                        @click="saveSettings"
+                        class="px-6 py-2 bg-chatgpt-accent text-white rounded-lg hover:bg-emerald-600 transition-colors text-sm font-medium"
+                    >
+                        保存设置
+                    </button>
+                </div>
+            </div>
+        </div>
+        </Transition>
+    </div>
+
+    <!-- Toast 提示 -->
+    <Toast
+        :show="showToast"
+        :message="toastMessage"
+        :type="toastType"
+        @close="showToast = false"
+    />
+
+    <!-- 确认对话框 -->
+    <ConfirmDialog
+        :show="showConfirm"
+        :title="confirmConfig.title"
+        :message="confirmConfig.message"
+        :type="confirmConfig.type"
+        confirm-text="确定"
+        cancel-text="取消"
+        @confirm="handleConfirm"
+        @close="showConfirm = false"
+    />
+</template>
+
+<style scoped>
+/* 平滑滚动 */
+.overflow-y-auto {
+    scroll-behavior: smooth;
+}
+
+/* 模态框背景过渡动画 */
+.modal-enter-active,
+.modal-leave-active {
+    transition: opacity 0.3s ease;
+}
+
+.modal-enter-from,
+.modal-leave-to {
+    opacity: 0;
+}
+
+/* 模态框内容过渡动画 */
+.modal-content-enter-active {
+    transition: all 0.3s ease;
+}
+
+.modal-content-leave-active {
+    transition: all 0.2s ease;
+}
+
+.modal-content-enter-from {
+    opacity: 0;
+    transform: scale(0.95) translateY(-20px);
+}
+
+.modal-content-leave-to {
+    opacity: 0;
+    transform: scale(0.95);
+}
+</style>

@@ -1,0 +1,25 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(dir /B /S)",
+      "Bash(dir /s /b d:PersonCodeAntigravity-Websrc)",
+      "Bash(dir \"d:\\\\PersonCode\\\\Antigravity-Web\\\\src\")",
+      "Bash(dir \"d:\\\\PersonCode\\\\Antigravity-Web\" /A:D /B)",
+      "Bash(dir \"d:\\\\PersonCode\\\\Antigravity-Web\\\\tailwind.config.js\")",
+      "Bash(dir /s /b /a-d)",
+      "Bash(npm install axios tailwindcss postcss autoprefixer lucide-vue-next markdown-it)",
+      "Bash(npx tailwindcss init -p)",
+      "Bash(pnpm install axios tailwindcss postcss autoprefixer lucide-vue-next markdown-it)",
+      "Bash(pnpm dlx tailwindcss init -p)",
+      "Bash(dir \"node_modules\\\\.bin\\\\tailwindcss\")",
+      "Bash(dir \"node_modules\\\\.bin\")",
+      "Bash(pnpm install -D tailwindcss@3 postcss autoprefixer)",
+      "Bash(dir d:PersonCodeAntigravity-Webpublic)",
+      "Bash(dir \"d:\\\\PersonCode\\\\Antigravity-Web\" /s /b /a-d)",
+      "Bash(dir /B /S d:PersonCodeAntigravity-Webpublic)",
+      "Bash(dir \"d:\\\\PersonCode\\\\Antigravity-Web\\\\public\" /b)",
+      "Bash(dir \"d:\\\\PersonCode\\\\Antigravity-Web\\\\src\\\\assets\\\\fonts\")",
+      "Bash(dir:*)"
+    ]
+  }
+}

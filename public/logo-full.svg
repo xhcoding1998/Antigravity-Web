@@ -1,0 +1,36 @@
+<svg width="200" height="60" viewBox="0 0 200 60" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Robot Icon -->
+  <g transform="translate(10, 10)">
+    <!-- Robot Head -->
+    <rect x="5" y="8" width="30" height="24" rx="4" fill="white" stroke="#10A37F" stroke-width="2"/>
+
+    <!-- Antenna -->
+    <line x1="20" y1="8" x2="20" y2="2" stroke="#10A37F" stroke-width="2" stroke-linecap="round"/>
+    <circle cx="20" cy="1" r="2" fill="#EF4444"/>
+
+    <!-- Left Ear -->
+    <rect x="2" y="15" width="4" height="10" rx="2" fill="#E0E7FF" stroke="#10A37F" stroke-width="2"/>
+
+    <!-- Right Ear -->
+    <rect x="34" y="15" width="4" height="10" rx="2" fill="#E0E7FF" stroke="#10A37F" stroke-width="2"/>
+
+    <!-- Left Eye -->
+    <circle cx="14" cy="18" r="2.5" fill="#10A37F"/>
+
+    <!-- Right Eye -->
+    <circle cx="26" cy="18" r="2.5" fill="#10A37F"/>
+
+    <!-- Smile -->
+    <path d="M 12 25 Q 20 29 28 25" stroke="#10A37F" stroke-width="2" stroke-linecap="round" fill="none"/>
+  </g>
+
+  <!-- Text: Antigravity -->
+  <text x="60" y="35" font-family="system-ui, -apple-system, sans-serif" font-size="24" font-weight="700" fill="#111827">
+    Antigravity
+  </text>
+
+  <!-- Subtitle: Chat -->
+  <text x="62" y="50" font-family="system-ui, -apple-system, sans-serif" font-size="12" font-weight="500" fill="#6B7280">
+    AI Chat Platform
+  </text>
+</svg>
