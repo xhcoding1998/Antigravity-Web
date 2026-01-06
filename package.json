@@ -1,6 +1,9 @@
 {
-  "name": "antigravity-web",
-  "version": "0.0.0",
+  "name": "antigravity-chat",
+  "version": "1.0.0",
+  "description": "A modern AI chat platform supporting multiple models, image recognition, and streaming responses",
+  "author": "Your Name",
+  "license": "MIT",
   "private": true,
   "type": "module",
   "engines": {
