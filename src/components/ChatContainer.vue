@@ -4,8 +4,11 @@ import MessageItem from './MessageItem.vue';
 
 const props = defineProps({
     messages: Array,
-    modelName: String
+    modelName: String,
+    isStreaming: Boolean
 });
+
+const emit = defineEmits(['resend']);
 
 const scrollContainer = ref(null);
 
@@ -26,6 +29,10 @@ const scrollToBottom = () => {
 onUpdated(() => {
     nextTick(scrollToBottom);
 });
+
+const handleResend = (messageIndex) => {
+    emit('resend', messageIndex);
+};
 </script>
 
 <template>
@@ -48,7 +55,10 @@ onUpdated(() => {
                 v-for="(msg, index) in messages"
                 :key="index"
                 :message="msg"
+                :message-index="index"
                 :model-name="modelName"
+                :is-streaming="isStreaming"
+                @resend="handleResend"
             />
         </div>
     </div>

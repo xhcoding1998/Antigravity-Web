@@ -25,6 +25,7 @@ const {
     deleteChat,
     clearHistory,
     sendMessage,
+    resendMessage,
     updateModels,
     updateApiConfig,
     updateDataRetention,
@@ -77,6 +78,16 @@ const handleResetAll = async () => {
     showSettings.value = false;
 };
 
+const handleResend = async (messageIndex) => {
+    // 检查API配置
+    if (!apiConfig.value.baseUrl || !apiConfig.value.apiKey) {
+        showApiConfigDialog.value = true;
+        return;
+    }
+
+    await resendMessage(messageIndex);
+};
+
 </script>
 
 <template>
@@ -106,7 +117,12 @@ const handleResetAll = async () => {
             </div>
 
             <!-- Messages List -->
-            <ChatContainer :messages="messages" :model-name="selectedModel?.name" />
+            <ChatContainer
+                :messages="messages"
+                :model-name="selectedModel?.name"
+                :is-streaming="isStreaming"
+                @resend="handleResend"
+            />
 
             <!-- Input Area -->
             <ChatInput :disabled="isStreaming" :model-name="selectedModel?.name" @send="handleSend" />

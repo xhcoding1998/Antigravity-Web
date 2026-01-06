@@ -267,21 +267,23 @@ export function useChat() {
         }
     };
 
-    const sendMessage = async (content, images = []) => {
+    const sendMessage = async (content, images = [], isResend = false) => {
         if (!content.trim() && images.length === 0) return;
 
         if (!currentChatId.value) {
             currentChatId.value = createNewChat();
         }
 
-        const userMessage = {
-            role: 'user',
-            content: content,
-            images: images,
-            timestamp: new Date().toISOString()
-        };
-
-        messages.value.push(userMessage);
+        // 如果不是重新发送，才添加用户消息
+        if (!isResend) {
+            const userMessage = {
+                role: 'user',
+                content: content,
+                images: images,
+                timestamp: new Date().toISOString()
+            };
+            messages.value.push(userMessage);
+        }
 
         const chatIndex = history.value.findIndex(c => c.id === currentChatId.value);
         const currentChat = history.value[chatIndex];
@@ -419,6 +421,35 @@ export function useChat() {
         await cleanupOldData();
     };
 
+    // 重新发送消息
+    const resendMessage = async (messageIndex) => {
+        if (messageIndex < 0 || messageIndex >= messages.value.length) {
+            console.error('Invalid message index');
+            return;
+        }
+
+        const messageToResend = messages.value[messageIndex];
+
+        // 确保是用户消息
+        if (messageToResend.role !== 'user') {
+            console.error('Can only resend user messages');
+            return;
+        }
+
+        // 删除该消息之后的所有消息（包括AI回复）
+        messages.value = messages.value.slice(0, messageIndex + 1);
+
+        // 保存到历史记录
+        const chatIndex = history.value.findIndex(c => c.id === currentChatId.value);
+        if (chatIndex !== -1) {
+            history.value[chatIndex].messages = [...messages.value];
+            saveHistoryDebounced(history.value[chatIndex]);
+        }
+
+        // 重新发送该消息
+        await sendMessage(messageToResend.content, messageToResend.images || [], true);
+    };
+
     // 重置所有设置到默认值
     const resetAllSettings = async () => {
         models.value = DEFAULT_MODELS.map(m => ({ ...m }));
@@ -522,6 +553,7 @@ export function useChat() {
         deleteChat,
         clearHistory,
         sendMessage,
+        resendMessage,
         updateModels,
         updateApiConfig,
         updateDataRetention,

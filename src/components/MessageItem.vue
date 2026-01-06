@@ -1,12 +1,16 @@
 <script setup>
 import { computed, ref } from 'vue';
 import MarkdownIt from 'markdown-it';
-import { User, Bot, Copy, ThumbsUp, ThumbsDown, Check, X } from 'lucide-vue-next';
+import { User, Bot, Copy, ThumbsUp, ThumbsDown, Check, X, RefreshCw } from 'lucide-vue-next';
 
 const props = defineProps({
     message: Object,
-    modelName: String
+    modelName: String,
+    messageIndex: Number,
+    isStreaming: Boolean
 });
+
+const emit = defineEmits(['resend']);
 
 const md = new MarkdownIt({
     html: true,
@@ -138,6 +142,11 @@ const closeImagePreview = () => {
     console.log('closeImagePreview called');
     previewImage.value = null;
 };
+
+// 重新发送
+const handleResend = () => {
+    emit('resend', props.messageIndex);
+};
 </script>
 
 <template>
@@ -192,7 +201,7 @@ const closeImagePreview = () => {
                 <!-- Streaming Cursor -->
                 <div v-if="!isUser && message.streaming" class="inline-block w-1.5 h-4 bg-chatgpt-accent rounded-sm animate-pulse ml-0.5"></div>
 
-                <!-- Actions (visible on hover) -->
+                <!-- Actions for AI messages (visible on hover) -->
                 <div v-if="!isUser && !message.streaming && message.content" class="flex items-center gap-1 mt-2 opacity-0 group-hover:opacity-100 transition-opacity">
                     <button
                         @click="copyToClipboard"
@@ -206,6 +215,17 @@ const closeImagePreview = () => {
                     </button>
                     <button class="p-1.5 hover:bg-gray-200 rounded-md text-chatgpt-subtext hover:text-chatgpt-text transition-colors">
                         <ThumbsDown :size="14" />
+                    </button>
+                </div>
+
+                <!-- Actions for User messages (visible on hover) -->
+                <div v-if="isUser && !isStreaming" class="flex items-center gap-1 mt-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <button
+                        @click="handleResend"
+                        class="p-1.5 hover:bg-emerald-100 rounded-md text-chatgpt-subtext hover:text-emerald-600 transition-colors flex items-center gap-1.5 text-sm"
+                        title="重新发送这条消息">
+                        <RefreshCw :size="14" />
+                        <span class="text-xs">重新发送</span>
                     </button>
                 </div>
             </div>
