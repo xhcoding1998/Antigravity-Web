@@ -1,7 +1,7 @@
-import { ref, watch, markRaw } from 'vue';
+import { ref, watch, markRaw, onMounted } from 'vue';
 import { Zap, BrainCircuit, Sparkles, Cpu, Image as ImageIcon } from 'lucide-vue-next';
+import { dbManager } from '../utils/indexedDB.js';
 
-const STORAGE_KEY = 'chatgpt_history';
 const SETTINGS_KEY = 'chatgpt_settings';
 const SELECTED_MODEL_KEY = 'chatgpt_selected_model';
 
@@ -84,86 +84,132 @@ const DEFAULT_MODELS = [
 const DEFAULT_DATA_RETENTION = 7; // 默认保存7天
 
 export function useChat() {
+    // 数据库初始化状态
+    const isDbReady = ref(false);
+    const isInitializing = ref(true);
+
     // 加载设置
-    const loadSettings = () => {
-        const saved = localStorage.getItem(SETTINGS_KEY);
-        if (saved) {
-            try {
-                return JSON.parse(saved);
-            } catch (e) {
-                return null;
-            }
+    const loadSettings = async () => {
+        try {
+            const saved = await dbManager.getSetting(SETTINGS_KEY);
+            return saved;
+        } catch (e) {
+            console.error('加载设置失败:', e);
+            return null;
         }
-        return null;
     };
 
-    const savedSettings = loadSettings();
+    const savedSettings = ref(null);
 
     // 模型列表
-    const models = ref(savedSettings?.models || DEFAULT_MODELS.map(m => ({ ...m })));
+    const models = ref(DEFAULT_MODELS.map(m => ({ ...m })));
 
     // API配置 - 不设置默认值，由用户自行配置
-    const apiConfig = ref(savedSettings?.apiConfig || { baseUrl: '', apiKey: '' });
+    const apiConfig = ref({ baseUrl: '', apiKey: '' });
 
     // 数据保存天数
-    const dataRetention = ref(savedSettings?.dataRetention || DEFAULT_DATA_RETENTION);
+    const dataRetention = ref(DEFAULT_DATA_RETENTION);
 
-    // 保存设置到localStorage
-    const saveSettings = () => {
-        const settings = {
-            models: models.value,
-            apiConfig: apiConfig.value,
-            dataRetention: dataRetention.value
-        };
-        localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
+    // 保存设置到 IndexedDB
+    const saveSettings = async () => {
+        if (!isDbReady.value) return;
+
+        try {
+            // 过滤掉不可序列化的字段（如 icon）
+            const serializableModels = models.value.map(m => ({
+                id: m.id,
+                name: m.name,
+                desc: m.desc
+                // 不保存 icon 字段
+            }));
+
+            // 使用 JSON.parse(JSON.stringify()) 确保完全可序列化
+            const settings = JSON.parse(JSON.stringify({
+                models: serializableModels,
+                apiConfig: {
+                    baseUrl: apiConfig.value.baseUrl || '',
+                    apiKey: apiConfig.value.apiKey || ''
+                },
+                dataRetention: dataRetention.value
+            }));
+
+            console.log('准备保存设置:', settings); // 调试日志
+            await dbManager.saveSetting(SETTINGS_KEY, settings);
+            console.log('设置保存成功'); // 调试日志
+        } catch (e) {
+            console.error('保存设置失败:', e);
+            console.error('models.value:', models.value);
+            console.error('apiConfig.value:', apiConfig.value);
+        }
     };
 
-    // 监听设置变化并保存
-    watch([models, apiConfig, dataRetention], saveSettings, { deep: true });
+    // 监听设置变化并保存（防抖）
+    let saveSettingsTimeout;
+    watch([models, apiConfig, dataRetention], () => {
+        clearTimeout(saveSettingsTimeout);
+        saveSettingsTimeout = setTimeout(() => {
+            saveSettings();
+        }, 500);
+    }, { deep: true });
 
     // 清理过期数据
-    const cleanupOldData = () => {
-        const retentionDays = dataRetention.value;
-        const cutoffTime = Date.now() - (retentionDays * 24 * 60 * 60 * 1000);
+    const cleanupOldData = async () => {
+        if (!isDbReady.value) return;
 
-        history.value = history.value.filter(chat => {
-            const chatTime = new Date(chat.createdAt).getTime();
-            return chatTime >= cutoffTime;
-        });
+        try {
+            const retentionDays = dataRetention.value;
+            const cutoffDate = new Date(Date.now() - (retentionDays * 24 * 60 * 60 * 1000));
+
+            const deletedIds = await dbManager.deleteChatsBeforeDate(cutoffDate);
+
+            // 从内存中移除已删除的聊天
+            history.value = history.value.filter(chat => !deletedIds.includes(chat.id));
+
+            if (deletedIds.length > 0) {
+                console.log(`清理了 ${deletedIds.length} 条过期对话`);
+            }
+        } catch (e) {
+            console.error('清理过期数据失败:', e);
+        }
     };
 
-    // 初始化时清理过期数据
-    const history = ref(JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]'));
-    cleanupOldData();
+    // 聊天历史
+    const history = ref([]);
 
     const currentChatId = ref(null);
     const messages = ref([]);
 
-    // 从缓存加载选中的模型ID
-    const savedModelId = localStorage.getItem(SELECTED_MODEL_KEY);
-    const initialModelId = savedModelId && models.value.find(m => m.id === savedModelId)
-        ? savedModelId
-        : models.value[0]?.id;
+    const selectedModelId = ref(models.value[0]?.id);
+    const selectedModel = ref(models.value[0]);
 
-    const selectedModelId = ref(initialModelId);
-    const selectedModel = ref(models.value.find(m => m.id === initialModelId) || models.value[0]);
-
-    watch(selectedModelId, (newId) => {
+    watch(selectedModelId, async (newId) => {
         selectedModel.value = models.value.find(m => m.id === newId);
-        // 缓存选中的模型ID
-        localStorage.setItem(SELECTED_MODEL_KEY, newId);
+        // 缓存选中的模型ID到 IndexedDB
+        if (isDbReady.value) {
+            try {
+                await dbManager.saveSetting(SELECTED_MODEL_KEY, newId);
+            } catch (e) {
+                console.error('保存模型选择失败:', e);
+            }
+        }
     });
 
     const isStreaming = ref(false);
 
-    // Save history to localStorage (debounced to avoid blocking)
-    let saveTimeout;
-    watch(history, (newHistory) => {
-        clearTimeout(saveTimeout);
-        saveTimeout = setTimeout(() => {
-            localStorage.setItem(STORAGE_KEY, JSON.stringify(newHistory));
-        }, 1000); // Wait 1 second after last change to save
-    }, { deep: true });
+    // 保存聊天历史到 IndexedDB（防抖）
+    let saveHistoryTimeout;
+    const saveHistoryDebounced = (chat) => {
+        clearTimeout(saveHistoryTimeout);
+        saveHistoryTimeout = setTimeout(async () => {
+            if (!isDbReady.value) return;
+
+            try {
+                await dbManager.saveChat(chat);
+            } catch (e) {
+                console.error('保存聊天历史失败:', e);
+            }
+        }, 1000);
+    };
 
     const createNewChat = () => {
         const id = Date.now().toString();
@@ -189,19 +235,36 @@ export function useChat() {
         }
     };
 
-    const deleteChat = (id) => {
+    const deleteChat = async (id) => {
         history.value = history.value.filter(c => c.id !== id);
         if (currentChatId.value === id) {
             currentChatId.value = null;
             messages.value = [];
         }
+
+        // 从 IndexedDB 删除
+        if (isDbReady.value) {
+            try {
+                await dbManager.deleteChat(id);
+            } catch (e) {
+                console.error('删除聊天失败:', e);
+            }
+        }
     };
 
-    const clearHistory = () => {
+    const clearHistory = async () => {
         history.value = [];
         currentChatId.value = null;
         messages.value = [];
-        localStorage.removeItem(STORAGE_KEY);
+
+        // 清空 IndexedDB 中的聊天记录
+        if (isDbReady.value) {
+            try {
+                await dbManager.clearAllChats();
+            } catch (e) {
+                console.error('清空聊天历史失败:', e);
+            }
+        }
     };
 
     const sendMessage = async (content, images = []) => {
@@ -221,10 +284,15 @@ export function useChat() {
         messages.value.push(userMessage);
 
         const chatIndex = history.value.findIndex(c => c.id === currentChatId.value);
-        if (history.value[chatIndex].messages.length === 0) {
-            history.value[chatIndex].title = content.substring(0, 30) || 'Image Analysis';
+        const currentChat = history.value[chatIndex];
+
+        if (currentChat.messages.length === 0) {
+            currentChat.title = content.substring(0, 30) || 'Image Analysis';
         }
-        history.value[chatIndex].messages = [...messages.value];
+        currentChat.messages = [...messages.value];
+
+        // 保存到 IndexedDB
+        saveHistoryDebounced(currentChat);
 
         isStreaming.value = true;
         const assistantMessage = {
@@ -313,7 +381,11 @@ export function useChat() {
             }
 
             if (chatIndex !== -1) {
-                history.value[chatIndex].messages = JSON.parse(JSON.stringify(messages.value));
+                const updatedChat = history.value[chatIndex];
+                updatedChat.messages = JSON.parse(JSON.stringify(messages.value));
+
+                // 保存到 IndexedDB
+                saveHistoryDebounced(updatedChat);
             }
 
         } catch (error) {
@@ -342,18 +414,96 @@ export function useChat() {
         apiConfig.value = newConfig;
     };
 
-    const updateDataRetention = (days) => {
+    const updateDataRetention = async (days) => {
         dataRetention.value = days;
-        cleanupOldData();
+        await cleanupOldData();
     };
 
     // 重置所有设置到默认值
-    const resetAllSettings = () => {
+    const resetAllSettings = async () => {
         models.value = DEFAULT_MODELS.map(m => ({ ...m }));
         apiConfig.value = { baseUrl: '', apiKey: '' };
         dataRetention.value = DEFAULT_DATA_RETENTION;
-        localStorage.removeItem(SETTINGS_KEY);
+
+        if (isDbReady.value) {
+            try {
+                await dbManager.deleteSetting(SETTINGS_KEY);
+            } catch (e) {
+                console.error('重置设置失败:', e);
+            }
+        }
     };
+
+    // 初始化数据库和数据
+    const initializeData = async () => {
+        try {
+            // 初始化 IndexedDB
+            await dbManager.init();
+            isDbReady.value = true;
+
+            // 检查是否需要从 localStorage 迁移数据
+            const hasOldData = localStorage.getItem('chatgpt_history') ||
+                              localStorage.getItem('chatgpt_settings');
+
+            if (hasOldData) {
+                console.log('检测到 localStorage 中的旧数据，开始迁移...');
+                await dbManager.migrateFromLocalStorage();
+                // 迁移完成后清除 localStorage
+                dbManager.clearLocalStorage();
+            }
+
+            // 加载设置
+            const settings = await loadSettings();
+            if (settings) {
+                savedSettings.value = settings;
+
+                // 恢复模型列表，合并 icon 字段
+                if (settings.models) {
+                    models.value = settings.models.map(savedModel => {
+                        // 从默认模型中查找对应的 icon
+                        const defaultModel = DEFAULT_MODELS.find(m => m.id === savedModel.id);
+                        return {
+                            ...savedModel,
+                            icon: defaultModel?.icon || markRaw(Sparkles) // 如果找不到默认 icon，使用通用 icon
+                        };
+                    });
+                } else {
+                    models.value = DEFAULT_MODELS.map(m => ({ ...m }));
+                }
+
+                apiConfig.value = settings.apiConfig || { baseUrl: '', apiKey: '' };
+                dataRetention.value = settings.dataRetention || DEFAULT_DATA_RETENTION;
+            }
+
+            // 加载选中的模型
+            const savedModelId = await dbManager.getSetting(SELECTED_MODEL_KEY);
+            if (savedModelId && models.value.find(m => m.id === savedModelId)) {
+                selectedModelId.value = savedModelId;
+                selectedModel.value = models.value.find(m => m.id === savedModelId);
+            }
+
+            // 加载聊天历史
+            const chats = await dbManager.getAllChats();
+            history.value = chats;
+
+            // 清理过期数据
+            await cleanupOldData();
+
+            // 获取存储使用情况
+            const storageInfo = await dbManager.getStorageEstimate();
+            if (storageInfo) {
+                console.log(`📊 存储使用情况: ${storageInfo.usageInMB}MB / ${storageInfo.quotaInMB}MB (${storageInfo.percentUsed}%)`);
+            }
+
+        } catch (error) {
+            console.error('初始化失败:', error);
+        } finally {
+            isInitializing.value = false;
+        }
+    };
+
+    // 在组件挂载时初始化
+    initializeData();
 
     return {
         history,
@@ -365,6 +515,8 @@ export function useChat() {
         isStreaming,
         apiConfig,
         dataRetention,
+        isDbReady,
+        isInitializing,
         createNewChat,
         selectChat,
         deleteChat,
@@ -373,6 +525,7 @@ export function useChat() {
         updateModels,
         updateApiConfig,
         updateDataRetention,
-        resetAllSettings
+        resetAllSettings,
+        getStorageInfo: () => dbManager.getStorageEstimate()
     };
 }

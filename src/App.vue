@@ -18,6 +18,8 @@ const {
     isStreaming,
     apiConfig,
     dataRetention,
+    isDbReady,
+    isInitializing,
     createNewChat,
     selectChat,
     deleteChat,
@@ -26,7 +28,8 @@ const {
     updateModels,
     updateApiConfig,
     updateDataRetention,
-    resetAllSettings
+    resetAllSettings,
+    getStorageInfo
 } = useChat();
 
 // 确认对话框
@@ -65,12 +68,12 @@ const handleUpdateApiConfig = (newConfig) => {
     updateApiConfig(newConfig);
 };
 
-const handleUpdateDataRetention = (days) => {
-    updateDataRetention(days);
+const handleUpdateDataRetention = async (days) => {
+    await updateDataRetention(days);
 };
 
-const handleResetAll = () => {
-    resetAllSettings();
+const handleResetAll = async () => {
+    await resetAllSettings();
     showSettings.value = false;
 };
 
@@ -117,11 +120,14 @@ const handleResetAll = () => {
                     :api-config="apiConfig"
                     :data-retention="dataRetention"
                     :selected-model-id="selectedModelId"
+                    :history="history"
+                    :get-storage-info="getStorageInfo"
                     @close="closeSettings"
                     @update:models="handleUpdateModels"
                     @update:api-config="handleUpdateApiConfig"
                     @update:data-retention="handleUpdateDataRetention"
                     @reset-all="handleResetAll"
+                    @clear-history="clearHistory"
                 />
             </div>
         </Transition>

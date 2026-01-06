@@ -1,6 +1,6 @@
 <script setup>
-import { ref, computed } from 'vue';
-import { X, Plus, Trash2, Edit2, Save, RotateCcw, AlertCircle } from 'lucide-vue-next';
+import { ref, computed, onMounted } from 'vue';
+import { X, Plus, Trash2, Edit2, Save, RotateCcw, AlertCircle, HardDrive, RefreshCw, Database } from 'lucide-vue-next';
 import Toast from './Toast.vue';
 import ConfirmDialog from './ConfirmDialog.vue';
 
@@ -8,10 +8,57 @@ const props = defineProps({
     models: Array,
     apiConfig: Object,
     dataRetention: Number,
-    selectedModelId: String
+    selectedModelId: String,
+    getStorageInfo: Function,
+    history: Array  // 添加 history 用于统计
 });
 
-const emit = defineEmits(['close', 'update:models', 'update:apiConfig', 'update:dataRetention', 'resetAll']);
+const emit = defineEmits(['close', 'update:models', 'update:apiConfig', 'update:dataRetention', 'resetAll', 'clearHistory']);
+
+// 存储信息
+const storageInfo = ref(null);
+const isLoadingStorage = ref(false);
+
+// 计算详细统计
+const detailedStats = computed(() => {
+    if (!props.history) return null;
+
+    const totalChats = props.history.length;
+    const totalMessages = props.history.reduce((sum, chat) => sum + (chat.messages?.length || 0), 0);
+
+    // 估算数据大小（粗略估计）
+    const estimatedSize = JSON.stringify(props.history).length / (1024 * 1024);
+
+    return {
+        totalChats,
+        totalMessages,
+        estimatedSize: estimatedSize.toFixed(2)
+    };
+});
+
+// 获取存储信息
+const loadStorageInfo = async () => {
+    if (props.getStorageInfo) {
+        isLoadingStorage.value = true;
+        try {
+            storageInfo.value = await props.getStorageInfo();
+        } catch (e) {
+            console.error('获取存储信息失败:', e);
+        } finally {
+            isLoadingStorage.value = false;
+        }
+    }
+};
+
+// 刷新存储信息
+const refreshStorageInfo = async () => {
+    await loadStorageInfo();
+    showToastMessage('存储信息已刷新', 'success');
+};
+
+onMounted(() => {
+    loadStorageInfo();
+});
 
 // 标签页
 const activeTab = ref('models');
@@ -153,6 +200,23 @@ const resetToDefaults = () => {
         () => {
             emit('resetAll');
             emit('close');
+        }
+    );
+};
+
+// 手动清空所有数据
+const handleClearAllData = () => {
+    showConfirmDialog(
+        '清空所有数据',
+        '⚠️ 此操作将删除所有对话历史记录，且无法恢复！\n\n确定要继续吗？',
+        'danger',
+        () => {
+            emit('clearHistory');
+            // 刷新存储信息
+            setTimeout(() => {
+                loadStorageInfo();
+            }, 500);
+            showToastMessage('所有数据已清空', 'success');
         }
     );
 };
@@ -428,6 +492,106 @@ const resetToDefaults = () => {
 
                 <!-- 数据管理标签页 -->
                 <div v-if="activeTab === 'data'" class="space-y-6">
+                    <!-- 存储信息 -->
+                    <div class="bg-gradient-to-br from-blue-50 to-indigo-50 border border-blue-200 rounded-xl p-5">
+                        <div class="flex items-start justify-between mb-4">
+                            <div class="flex items-start gap-3">
+                                <Database :size="22" class="text-blue-600 shrink-0 mt-0.5" />
+                                <div>
+                                    <p class="font-bold text-blue-900 text-lg mb-1">存储统计</p>
+                                    <p class="text-sm text-blue-700">IndexedDB 本地存储，支持 500MB+ 大容量</p>
+                                </div>
+                            </div>
+                            <button
+                                @click="refreshStorageInfo"
+                                :disabled="isLoadingStorage"
+                                class="p-2 hover:bg-blue-100 rounded-lg transition-colors disabled:opacity-50"
+                                title="刷新存储信息"
+                            >
+                                <RefreshCw :size="18" :class="['text-blue-600', isLoadingStorage ? 'animate-spin' : '']" />
+                            </button>
+                        </div>
+
+                        <!-- 浏览器存储配额 -->
+                        <div v-if="storageInfo" class="space-y-4">
+                            <div class="grid grid-cols-3 gap-3">
+                                <div class="bg-white/70 rounded-lg p-3 text-center border border-blue-100">
+                                    <div class="text-2xl font-bold text-blue-600">{{ storageInfo.usageInMB }}</div>
+                                    <div class="text-xs text-gray-600 mt-1">已使用 (MB)</div>
+                                </div>
+                                <div class="bg-white/70 rounded-lg p-3 text-center border border-emerald-100">
+                                    <div class="text-2xl font-bold text-emerald-600">{{ storageInfo.quotaInMB }}</div>
+                                    <div class="text-xs text-gray-600 mt-1">总配额 (MB)</div>
+                                </div>
+                                <div class="bg-white/70 rounded-lg p-3 text-center border border-purple-100">
+                                    <div class="text-2xl font-bold text-purple-600">{{ storageInfo.percentUsed }}%</div>
+                                    <div class="text-xs text-gray-600 mt-1">使用率</div>
+                                </div>
+                            </div>
+
+                            <!-- 进度条 -->
+                            <div class="bg-white/50 rounded-lg p-3">
+                                <div class="flex justify-between text-xs text-gray-600 mb-2">
+                                    <span>存储使用进度</span>
+                                    <span>{{ storageInfo.usageInMB }} MB / {{ storageInfo.quotaInMB }} MB</span>
+                                </div>
+                                <div class="w-full bg-gray-200 rounded-full h-2.5 overflow-hidden">
+                                    <div
+                                        class="h-full rounded-full transition-all duration-500"
+                                        :class="[
+                                            parseFloat(storageInfo.percentUsed) > 80 ? 'bg-red-500' :
+                                            parseFloat(storageInfo.percentUsed) > 50 ? 'bg-yellow-500' :
+                                            'bg-emerald-500'
+                                        ]"
+                                        :style="{ width: storageInfo.percentUsed + '%' }"
+                                    ></div>
+                                </div>
+                            </div>
+
+                            <!-- 数据详情 -->
+                            <div v-if="detailedStats" class="bg-white/50 rounded-lg p-3">
+                                <div class="text-sm font-semibold text-gray-700 mb-2">数据详情</div>
+                                <div class="grid grid-cols-3 gap-2 text-center">
+                                    <div>
+                                        <div class="text-lg font-bold text-gray-800">{{ detailedStats.totalChats }}</div>
+                                        <div class="text-xs text-gray-500">对话数量</div>
+                                    </div>
+                                    <div>
+                                        <div class="text-lg font-bold text-gray-800">{{ detailedStats.totalMessages }}</div>
+                                        <div class="text-xs text-gray-500">消息总数</div>
+                                    </div>
+                                    <div>
+                                        <div class="text-lg font-bold text-gray-800">{{ detailedStats.estimatedSize }}</div>
+                                        <div class="text-xs text-gray-500">估算大小 (MB)</div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- 手动清理按钮 -->
+                            <div class="flex gap-2 pt-2">
+                                <button
+                                    @click="handleClearAllData"
+                                    class="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-red-50 text-red-600 border border-red-200 rounded-lg hover:bg-red-100 transition-colors text-sm font-medium"
+                                >
+                                    <Trash2 :size="16" />
+                                    清空所有数据
+                                </button>
+                                <button
+                                    @click="refreshStorageInfo"
+                                    class="px-4 py-2.5 bg-white text-blue-600 border border-blue-200 rounded-lg hover:bg-blue-50 transition-colors text-sm font-medium"
+                                >
+                                    刷新统计
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- 加载中 -->
+                        <div v-else class="text-center py-8 text-gray-500">
+                            <RefreshCw :size="24" class="animate-spin mx-auto mb-2" />
+                            <p class="text-sm">加载存储信息中...</p>
+                        </div>
+                    </div>
+
                     <div class="bg-yellow-50 border border-yellow-200 rounded-xl p-4 flex gap-3">
                         <AlertCircle :size="20" class="text-yellow-600 shrink-0 mt-0.5" />
                         <div class="text-sm text-yellow-800">
