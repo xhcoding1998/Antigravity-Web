@@ -136,19 +136,30 @@ onUnmounted(() => {
 
 watch(input, adjustHeight);
 
-// 暴露方法供父组件调用（用于编辑功能）
+// 暴露方法供父组件调用
+const focus = () => {
+    if (textareaRef.value) {
+        textareaRef.value.focus();
+    }
+};
+
 const setEditContent = (content, editImages = []) => {
     input.value = content;
     images.value = [...editImages];
     // 自动聚焦到输入框
-    if (textareaRef.value) {
-        textareaRef.value.focus();
-        adjustHeight();
-    }
+    focus();
+    adjustHeight();
+};
+
+const setContent = (content) => {
+    input.value = content;
+    adjustHeight();
 };
 
 defineExpose({
-    setEditContent
+    setEditContent,
+    setContent,
+    focus
 });
 </script>
 

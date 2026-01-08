@@ -9,10 +9,46 @@ import ChatInput from './components/ChatInput.vue';
 import Settings from './components/Settings.vue';
 import ConfirmDialog from './components/ConfirmDialog.vue';
 
+// 根据主题动态导入 highlight.js 样式
+const loadCodeTheme = async (theme) => {
+    // 移除旧的样式
+    const oldStyle = document.getElementById('hljs-theme');
+    if (oldStyle) {
+        oldStyle.remove();
+    }
+
+    // 加载新样式
+    let themeFile = '';
+    switch (theme) {
+        case 'vscode':
+            themeFile = 'vs2015'; // VSCode深色主题
+            break;
+        case 'github':
+            themeFile = 'github-dark';
+            break;
+        case 'jetbrains':
+            themeFile = 'androidstudio'; // JetBrains风格深色主题
+            break;
+        default:
+            themeFile = 'vs2015';
+    }
+
+    // 动态导入CSS
+    const link = document.createElement('link');
+    link.id = 'hljs-theme';
+    link.rel = 'stylesheet';
+    link.href = `https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/${themeFile}.min.css`;
+    document.head.appendChild(link);
+};
+
 const {
     history,
     currentChatId,
     messages,
+    modelGroups,           // 新增
+    currentGroupId,        // 新增
+    currentGroup,          // 新增
+    switchGroup,           // 新增
     models,
     selectedModelId,
     selectedModel,
@@ -23,6 +59,7 @@ const {
     isInitializing,
     contextEnabled,
     diagramEnabled,
+    codeTheme,
     isDrawingModel,
     createNewChat,
     selectChat,
@@ -34,12 +71,25 @@ const {
     updateModels,
     updateApiConfig,
     updateDataRetention,
+    updateGroupApiConfig,  // 新增
+    updateGroupModels,     // 新增
+    createApiConfig,       // 新增：创建API配置
+    deleteApiConfig,       // 新增：删除API配置
+    refreshModels,         // 新增：刷新模型
+    syncModelsFromApi,     // 新增：同步模型
     resetAllSettings,
     getStorageInfo
 } = useChat();
 
 // 主题管理
 const { isDark, toggleTheme } = useTheme();
+
+// 监听代码主题变化并加载相应样式
+watch(codeTheme, (newTheme) => {
+    if (newTheme) {
+        loadCodeTheme(newTheme);
+    }
+}, { immediate: true }); // 立即执行以加载初始主题
 
 // 检测当前是否为绘图模型
 const isCurrentDrawingModel = computed(() => isDrawingModel(selectedModelId.value));
@@ -58,6 +108,13 @@ const handleSend = (content, images) => {
     // 检查API配置
     if (!apiConfig.value.baseUrl || !apiConfig.value.apiKey) {
         showApiConfigDialog.value = true;
+        // 如果 API 未配置，还原输入框内容
+        // 使用 nextTick 确保在组件清空后执行（虽然 ChatInput 是先 emit 再清空，但在某些情况下可能需要）
+        // 但根据 ChatInput 逻辑，emit 后立即清空。所以这里直接还原即可。
+        // 为了安全起见，延迟一下或直接调用
+        setTimeout(() => {
+             chatInputRef.value?.setEditContent(content, images);
+        }, 0);
         return;
     }
 
@@ -66,6 +123,14 @@ const handleSend = (content, images) => {
 
 const handleApiConfigConfirm = () => {
     openSettings();
+};
+
+const handleNewChat = () => {
+    createNewChat();
+    // 聚焦输入框
+    setTimeout(() => {
+        chatInputRef.value?.focus();
+    }, 0);
 };
 
 // 设置弹窗
@@ -89,6 +154,10 @@ const handleUpdateApiConfig = (newConfig) => {
 
 const handleUpdateDataRetention = async (days) => {
     await updateDataRetention(days);
+};
+
+const handleUpdateCodeTheme = (theme) => {
+    codeTheme.value = theme;
 };
 
 const handleResetAll = async () => {
@@ -117,6 +186,14 @@ const handleEdit = (messageIndex) => {
 
 const chatInputRef = ref(null);
 
+const handleSelectChat = (id) => {
+    selectChat(id);
+    // 聚焦输入框
+    setTimeout(() => {
+        chatInputRef.value?.focus();
+    }, 0);
+};
+
 </script>
 
 <template>
@@ -127,12 +204,15 @@ const chatInputRef = ref(null);
             :current-chat-id="currentChatId"
             :models="models"
             :selected-model-id="selectedModelId"
+            :model-groups="modelGroups"
+            :current-group-id="currentGroupId"
             :is-dark="isDark"
-            @new="createNewChat"
-            @select="selectChat"
+            @new="handleNewChat"
+            @select="handleSelectChat"
             @delete="deleteChat"
             @clear="clearHistory"
             @update:selected-model-id="selectedModelId = $event"
+            @update:current-group-id="switchGroup"
             @open-settings="openSettings"
             @toggle-theme="toggleTheme"
         />
@@ -142,7 +222,7 @@ const chatInputRef = ref(null);
             <!-- Mobile Header -->
             <div class="md:hidden p-4 border-b border-chatgpt-border dark:border-chatgpt-dark-border flex justify-between items-center bg-chatgpt-sidebar dark:bg-chatgpt-dark-sidebar transition-colors duration-200">
                 <span class="font-bold text-sm">{{ selectedModel?.name }}</span>
-                <button @click="createNewChat" class="p-2 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-md transition-colors">
+                <button @click="handleNewChat" class="p-2 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-md transition-colors">
                     <Plus :size="20" />
                 </button>
             </div>
@@ -153,6 +233,7 @@ const chatInputRef = ref(null);
                 :model-name="selectedModel?.name"
                 :is-streaming="isStreaming"
                 :diagram-enabled="diagramEnabled"
+                :code-theme="codeTheme"
                 @resend="handleResend"
                 @edit="handleEdit"
             />
@@ -175,16 +256,27 @@ const chatInputRef = ref(null);
         <Transition name="modal">
             <div v-if="showSettings">
                 <Settings
+                    :model-groups="modelGroups"
+                    :current-group-id="currentGroupId"
                     :models="models"
                     :api-config="apiConfig"
                     :data-retention="dataRetention"
+                    :code-theme="codeTheme"
                     :selected-model-id="selectedModelId"
                     :history="history"
                     :get-storage-info="getStorageInfo"
+                    :refresh-models="refreshModels"
+                    :sync-models-from-api="syncModelsFromApi"
+                    :create-api-config="createApiConfig"
+                    :delete-api-config="deleteApiConfig"
                     @close="closeSettings"
+                    @update:current-group-id="switchGroup"
+                    @update:group-models="({ groupId, models }) => updateGroupModels(groupId, models)"
+                    @update:group-api-config="({ groupId, config }) => updateGroupApiConfig(groupId, config)"
                     @update:models="handleUpdateModels"
                     @update:api-config="handleUpdateApiConfig"
                     @update:data-retention="handleUpdateDataRetention"
+                    @update:code-theme="handleUpdateCodeTheme"
                     @reset-all="handleResetAll"
                     @clear-history="clearHistory"
                 />

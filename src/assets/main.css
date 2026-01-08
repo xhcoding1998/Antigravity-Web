@@ -61,9 +61,15 @@ body {
   background: rgba(255, 255, 255, 0.25);
 }
 
-/* Smooth transitions for all interactive elements */
-* {
-  transition-property: background-color, border-color, color, fill, stroke, opacity, box-shadow, transform;
+/* Smooth transitions for specific elements only */
+button,
+a,
+input,
+textarea,
+select,
+[role="button"] {
+  transition-property: background-color, border-color, color, opacity, box-shadow, transform;
+  transition-duration: 0.15s;
   transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
 }
 

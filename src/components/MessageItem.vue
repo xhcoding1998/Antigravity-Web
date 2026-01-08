@@ -2,6 +2,7 @@
 import { computed, ref, onMounted, nextTick, watch, onUnmounted } from 'vue';
 import MarkdownIt from 'markdown-it';
 import mermaid from 'mermaid';
+import hljs from 'highlight.js';
 import { User, Bot, Copy, ThumbsUp, ThumbsDown, Check, X, RefreshCw, Edit3 } from 'lucide-vue-next';
 
 const props = defineProps({
@@ -9,7 +10,8 @@ const props = defineProps({
     modelName: String,
     messageIndex: Number,
     isStreaming: Boolean,
-    diagramEnabled: Boolean
+    diagramEnabled: Boolean,
+    codeTheme: String
 });
 
 const emit = defineEmits(['resend', 'edit']);
@@ -17,7 +19,14 @@ const emit = defineEmits(['resend', 'edit']);
 const md = new MarkdownIt({
     html: true,
     linkify: true,
-    typographer: true
+    typographer: true,
+    highlight: function (str, lang) {
+        // 不在这里高亮，而是返回原始代码，在渲染后再处理
+        if (lang) {
+            return `<pre><code class="hljs language-${lang}">${md.utils.escapeHtml(str)}</code></pre>`;
+        }
+        return `<pre><code class="hljs">${md.utils.escapeHtml(str)}</code></pre>`;
+    }
 });
 
 // 初始化 Mermaid
@@ -193,6 +202,62 @@ const renderMermaidDiagrams = async () => {
 
                 // 替换原来的代码块
                 parent.replaceWith(errorContainer);
+            }
+        } else if (!isMermaid) {
+            // 普通代码块 - 添加语法高亮和复制按钮
+            if (parent.dataset.highlighted === 'true') continue;
+
+            try {
+                // 应用语法高亮
+                hljs.highlightElement(block);
+
+                // 创建复制按钮容器
+                const copyButtonContainer = document.createElement('div');
+                copyButtonContainer.className = 'code-block-header';
+
+                // 检测语言
+                const language = block.className.match(/language-(\w+)/)?.[1] || 'code';
+
+                copyButtonContainer.innerHTML = `
+                    <div class="flex items-center gap-1.5">
+                        <div class="w-3 h-3 rounded-full bg-red-500"></div>
+                        <div class="w-3 h-3 rounded-full bg-yellow-500"></div>
+                        <div class="w-3 h-3 rounded-full bg-green-500"></div>
+                    </div>
+                    <span class="code-language">${language}</span>
+                    <button class="copy-code-btn" title="复制代码">
+                        <svg class="copy-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                            <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                        </svg>
+                        <svg class="check-icon hidden" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <polyline points="20 6 9 17 4 12"></polyline>
+                        </svg>
+                    </button>
+                `;
+
+                // 将复制按钮插入到 pre 元素之前
+                parent.insertBefore(copyButtonContainer, parent.firstChild);
+
+                // 为复制按钮添加点击事件
+                const copyBtn = copyButtonContainer.querySelector('.copy-code-btn');
+                copyBtn.addEventListener('click', () => {
+                    const codeText = block.textContent;
+                    navigator.clipboard.writeText(codeText).then(() => {
+                        const copyIcon = copyBtn.querySelector('.copy-icon');
+                        const checkIcon = copyBtn.querySelector('.check-icon');
+                        copyIcon.classList.add('hidden');
+                        checkIcon.classList.remove('hidden');
+                        setTimeout(() => {
+                            copyIcon.classList.remove('hidden');
+                            checkIcon.classList.add('hidden');
+                        }, 2000);
+                    });
+                });
+
+                parent.dataset.highlighted = 'true';
+            } catch (error) {
+                console.error('代码高亮失败:', error);
             }
         }
     }
@@ -527,8 +592,14 @@ const handleEdit = () => {
             <!-- Content Container -->
             <div class="flex flex-col gap-2 min-w-0 flex-1 relative">
                 <!-- User Label -->
-                <div class="text-xs font-bold text-chatgpt-text dark:text-chatgpt-dark-text mb-0.5">
-                    {{ isUser ? '你' : (modelName || 'AI') }}
+                <!-- User Label -->
+                <div class="flex items-center gap-2 mb-0.5">
+                    <span class="text-xs font-bold text-chatgpt-text dark:text-chatgpt-dark-text">
+                        {{ isUser ? '你' : (message.modelName || modelName || 'AI') }}
+                    </span>
+                    <span class="text-[10px] text-chatgpt-subtext dark:text-chatgpt-dark-subtext" v-if="message.timestamp">
+                        {{ new Date(message.timestamp).toLocaleTimeString() }}
+                    </span>
                 </div>
 
                 <!-- Images -->
@@ -567,10 +638,15 @@ const handleEdit = () => {
                 </div>
 
                 <!-- Text Content -->
-                <div v-else ref="contentRef" class="prose prose-slate dark:prose-invert max-w-none break-words text-sm leading-[1.6] text-chatgpt-text dark:text-chatgpt-dark-text" v-html="renderedContent"></div>
+                <div v-else ref="contentRef"
+                    :class="[
+                        'prose prose-slate dark:prose-invert max-w-none break-words text-sm leading-[1.6] text-chatgpt-text dark:text-chatgpt-dark-text',
+                        !isUser && message.streaming ? 'is-streaming' : ''
+                    ]"
+                    v-html="renderedContent"
+                ></div>
 
-                <!-- Streaming Cursor (only show when content exists) -->
-                <div v-if="!isUser && message.streaming && cleanedContent.trim()" class="inline-block w-1.5 h-4 bg-chatgpt-accent dark:bg-chatgpt-dark-accent rounded-sm animate-pulse ml-0.5"></div>
+                <!-- Streaming Cursor is now handled by CSS ::after on .is-streaming elements -->
 
                 <!-- Actions for AI messages (visible on hover) -->
                 <div v-if="!isUser && !message.streaming && message.content" class="flex items-center gap-0.5 mt-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -681,7 +757,35 @@ const handleEdit = () => {
 }
 
 .prose pre {
-    @apply bg-gray-900 dark:bg-black text-gray-100 dark:text-gray-200 p-4 rounded-xl overflow-x-auto my-4 shadow-md dark:shadow-dark-card;
+    @apply bg-gray-900 dark:bg-black text-gray-100 dark:text-gray-200 rounded-xl overflow-hidden my-4 shadow-md dark:shadow-dark-card relative;
+    padding: 0 !important;
+}
+
+.prose pre .code-block-header {
+    @apply flex items-center justify-between px-4 py-2 bg-gray-800 dark:bg-gray-900 border-b border-gray-700 dark:border-gray-800 gap-2;
+}
+
+.prose pre .code-language {
+    @apply text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wide flex-1;
+}
+
+.prose pre .copy-code-btn {
+    @apply p-1 rounded-md hover:bg-gray-700 dark:hover:bg-gray-800 transition-colors text-gray-400 hover:text-gray-200 flex items-center justify-center shrink-0;
+    width: 24px;
+    height: 24px;
+}
+
+.prose pre code {
+    @apply bg-transparent p-4 text-inherit text-sm font-normal block overflow-x-auto;
+    display: block !important;
+}
+
+.prose pre .copy-code-btn svg {
+    @apply w-3.5 h-3.5;
+}
+
+.prose pre .copy-code-btn .check-icon {
+    @apply text-green-400;
 }
 
 .prose code {
@@ -770,5 +874,47 @@ const handleEdit = () => {
 .fade-text-enter-from,
 .fade-text-leave-to {
     opacity: 0;
+}
+
+/* Streaming Cursor Effect */
+.is-streaming > p:last-child::after,
+.is-streaming > li:last-child::after,
+.is-streaming > pre:last-child code::after,
+.is-streaming > blockquote:last-child p:last-child::after,
+.is-streaming > h1:last-child::after,
+.is-streaming > h2:last-child::after,
+.is-streaming > h3:last-child::after,
+.is-streaming > h4:last-child::after,
+.is-streaming > h5:last-child::after,
+.is-streaming > h6:last-child::after {
+    content: '';
+    display: inline-block;
+    width: 0.45rem;
+    height: 1rem;
+    background-color: var(--chatgpt-accent, #10a37f);
+    margin-left: 0.25rem;
+    vertical-align: middle;
+    animation: cursor-blink 0.8s step-end infinite;
+    border-radius: 1px;
+    box-shadow: 0 0 4px rgba(16, 163, 127, 0.4);
+}
+
+@keyframes cursor-blink {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0; }
+}
+
+.dark .is-streaming > p:last-child::after,
+.dark .is-streaming > li:last-child::after,
+.dark .is-streaming > pre:last-child code::after,
+.dark .is-streaming > blockquote:last-child p:last-child::after,
+.dark .is-streaming > h1:last-child::after,
+.dark .is-streaming > h2:last-child::after,
+.dark .is-streaming > h3:last-child::after,
+.dark .is-streaming > h4:last-child::after,
+.dark .is-streaming > h5:last-child::after,
+.dark .is-streaming > h6:last-child::after {
+    background-color: var(--chatgpt-dark-accent, #10a37f);
+    box-shadow: 0 0 8px rgba(16, 163, 127, 0.6);
 }
 </style>

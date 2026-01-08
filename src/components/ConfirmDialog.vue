@@ -43,10 +43,9 @@ const iconColorMap = {
         <div
             v-if="show"
             class="fixed inset-0 bg-black/50 dark:bg-black/70 z-[200] flex items-center justify-center p-4 backdrop-blur-sm transition-colors duration-200"
-            @click.self="handleCancel"
         >
             <Transition name="modal-content">
-                <div class="bg-white dark:bg-chatgpt-dark-sidebar rounded-2xl shadow-2xl dark:shadow-dark-elevated w-full max-w-md transition-colors duration-200 dark:border-2 dark:border-chatgpt-dark-border">
+                <div class="bg-white dark:bg-chatgpt-dark-sidebar rounded-2xl shadow-2xl dark:shadow-dark-elevated w-full max-w-md transition-colors duration-200 dark:border-2 dark:border-chatgpt-dark-border" @keydown.esc="handleCancel">
                     <!-- 内容区域 -->
                     <div class="p-6 space-y-4">
                         <div class="flex gap-4">

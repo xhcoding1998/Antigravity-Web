@@ -6,7 +6,8 @@ const props = defineProps({
     messages: Array,
     modelName: String,
     isStreaming: Boolean,
-    diagramEnabled: Boolean
+    diagramEnabled: Boolean,
+    codeTheme: String
 });
 
 const emit = defineEmits(['resend', 'edit']);
@@ -64,6 +65,7 @@ const handleEdit = (messageIndex) => {
                 :model-name="modelName"
                 :is-streaming="isStreaming"
                 :diagram-enabled="diagramEnabled"
+                :code-theme="codeTheme"
                 @resend="handleResend"
                 @edit="handleEdit"
             />

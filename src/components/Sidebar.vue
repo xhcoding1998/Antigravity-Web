@@ -1,19 +1,40 @@
 <script setup>
-import { ref } from 'vue';
-import { Plus, MessageSquare, Trash2, ChevronDown, Settings, Moon, Sun } from 'lucide-vue-next';
+import { ref, computed } from 'vue';
+import { Plus, MessageSquare, Trash2, Settings } from 'lucide-vue-next';
 import ConfirmDialog from './ConfirmDialog.vue';
+import CustomDropdown from './CustomDropdown.vue';
 
 const props = defineProps({
     history: Array,
     currentChatId: String,
     models: Array,
     selectedModelId: String,
+    modelGroups: Array,
+    currentGroupId: String,
     isDark: Boolean
 });
 
-const emit = defineEmits(['select', 'new', 'delete', 'clear', 'update:selectedModelId', 'openSettings', 'toggleTheme']);
+const emit = defineEmits(['select', 'new', 'delete', 'clear', 'update:selectedModelId', 'update:currentGroupId', 'openSettings', 'toggleTheme']);
 
 const showClearConfirm = ref(false);
+
+// 转换为下拉选项格式
+const groupOptions = computed(() => {
+    if (!props.modelGroups || props.modelGroups.length === 0) return [];
+    return props.modelGroups.map(group => ({
+        value: group.id,
+        label: group.name,
+        badge: `${group.models?.length || 0} 个模型`
+    }));
+});
+
+const modelOptions = computed(() => {
+    if (!props.models || props.models.length === 0) return [];
+    return props.models.map(model => ({
+        value: model.id,
+        label: model.name
+    }));
+});
 
 const handleClearHistory = () => {
     showClearConfirm.value = true;
@@ -53,7 +74,7 @@ const confirmClearHistory = () => {
                 ]"
             >
                 <MessageSquare :size="18" :class="['shrink-0 transition-colors', currentChatId === chat.id ? 'text-chatgpt-accent dark:text-chatgpt-dark-accent' : 'text-chatgpt-subtext dark:text-chatgpt-dark-subtext']" />
-                <div class="flex-1 truncate pr-6">
+                <div class="flex-1 truncate pr-6" :title="new Date(parseInt(chat.id)).toLocaleString()">
                     {{ chat.title }}
                 </div>
 
@@ -71,34 +92,42 @@ const confirmClearHistory = () => {
         <!-- Footer -->
         <div class="p-4 space-y-3 border-t border-chatgpt-border dark:border-chatgpt-dark-border bg-chatgpt-sidebar dark:bg-chatgpt-dark-sidebar transition-colors duration-200">
             <!-- Enhanced Model Selector -->
-            <div class="relative">
-                <div class="text-[11px] font-bold text-chatgpt-subtext dark:text-chatgpt-dark-subtext uppercase px-1 mb-2 tracking-wide">模型</div>
+            <div class="relative space-y-3">
+                 <!-- Group Selector -->
+                 <div class="relative group">
+                    <div class="text-[11px] font-bold text-chatgpt-subtext dark:text-chatgpt-dark-subtext uppercase px-1 mb-1.5 tracking-wide">配置项</div>
+                    <CustomDropdown
+                        :model-value="currentGroupId"
+                        :options="groupOptions"
+                        placeholder="请选择配置"
+                        empty-text="暂无配置"
+                        @update:model-value="$emit('update:currentGroupId', $event)"
+                    />
+                </div>
+
+                <!-- Model Selector -->
                 <div class="relative group">
-                    <select
-                        :value="selectedModelId"
-                        @change="$emit('update:selectedModelId', $event.target.value)"
-                        class="w-full bg-white dark:bg-chatgpt-dark-input border-2 border-chatgpt-border dark:border-chatgpt-dark-border rounded-xl py-2.5 pl-3 pr-9 text-sm font-medium appearance-none cursor-pointer hover:border-gray-300 dark:hover:border-gray-600 hover:bg-gray-50 dark:hover:bg-chatgpt-dark-user transition-all duration-200 focus:outline-none focus:border-chatgpt-accent dark:focus:border-chatgpt-dark-accent shadow-card dark:shadow-dark-card truncate text-chatgpt-text dark:text-chatgpt-dark-text"
-                    >
-                        <option v-for="model in models" :key="model.id" :value="model.id">
-                            {{ model.name }}
-                        </option>
-                    </select>
-                    <div class="absolute inset-y-0 right-3 flex items-center pointer-events-none text-chatgpt-subtext dark:text-chatgpt-dark-subtext">
-                        <ChevronDown :size="16" />
-                    </div>
+                    <div class="text-[11px] font-bold text-chatgpt-subtext dark:text-chatgpt-dark-subtext uppercase px-1 mb-1.5 tracking-wide">支持模型</div>
+                    <CustomDropdown
+                        :model-value="selectedModelId"
+                        :options="modelOptions"
+                        placeholder="请选择模型"
+                        empty-text="暂无模型"
+                        @update:model-value="$emit('update:selectedModelId', $event)"
+                    />
                 </div>
             </div>
 
             <div class="pt-1 space-y-1">
                 <!-- Theme Toggle Button -->
-                <button
+                <!-- <button
                     @click="$emit('toggleTheme')"
                     class="flex items-center gap-3 w-full px-3 py-2.5 rounded-xl hover:bg-white dark:hover:bg-chatgpt-dark-user transition-all duration-200 text-sm text-chatgpt-subtext dark:text-chatgpt-dark-subtext hover:text-chatgpt-text dark:hover:text-chatgpt-dark-text font-medium group"
                 >
                     <Moon v-if="!isDark" :size="18" class="group-hover:text-chatgpt-accent dark:group-hover:text-chatgpt-dark-accent transition-colors" />
                     <Sun v-else :size="18" class="group-hover:text-yellow-500 transition-colors" />
                     {{ isDark ? '亮色模式' : '暗色模式' }}
-                </button>
+                </button> -->
 
                 <button
                     @click="handleClearHistory"
