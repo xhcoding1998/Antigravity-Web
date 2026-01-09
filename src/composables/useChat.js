@@ -458,6 +458,16 @@ export function useChat() {
         }
     });
 
+    // 监听当前分组变化并保存
+    watch(currentGroupId, async (newGroupId) => {
+        if (!isDbReady.value || !newGroupId) return;
+        try {
+            await dbManager.saveSetting('currentGroupId', newGroupId);
+        } catch (e) {
+            console.error('保存当前分组失败:', e);
+        }
+    });
+
     // 清理过期数据
     const cleanupOldData = async () => {
         if (!isDbReady.value) return;

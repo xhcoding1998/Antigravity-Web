@@ -11,10 +11,12 @@ const props = defineProps({
     messageIndex: Number,
     isStreaming: Boolean,
     diagramEnabled: Boolean,
-    codeTheme: String
+    codeTheme: String,
+    isSelectionMode: Boolean,
+    isSelected: Boolean
 });
 
-const emit = defineEmits(['resend', 'edit']);
+const emit = defineEmits(['resend', 'edit', 'toggleSelection']);
 
 const md = new MarkdownIt({
     html: true,
@@ -568,16 +570,40 @@ const handleResend = () => {
 const handleEdit = () => {
     emit('edit', props.messageIndex);
 };
+const handleMessageClick = (event) => {
+    // 仅在选择模式下生效，且点击的不是复选框本身（避免双重触发）
+    // 也不阻止用户点击代码块里的复制按钮
+    if (props.isSelectionMode &&
+        event.target.tagName.toLowerCase() !== 'input' &&
+        !event.target.closest('button')) {
+        emit('toggleSelection', props.messageIndex);
+    }
+};
 </script>
 
 <template>
     <div class="py-3 w-full flex justify-center transition-all duration-200">
         <div
+            @click="handleMessageClick"
             :class="[
-                'max-w-4xl w-full flex gap-4 px-6 md:px-5 group rounded-xl py-3 transition-colors duration-200',
-                isUser ? 'bg-chatgpt-user dark:bg-chatgpt-dark-user' : 'bg-chatgpt-assistant dark:bg-chatgpt-dark-assistant'
+                'max-w-4xl w-full flex gap-4 px-6 md:px-5 group rounded-xl py-3 transition-colors duration-200 border-2',
+                isUser ? 'bg-chatgpt-user dark:bg-chatgpt-dark-user' : 'bg-chatgpt-assistant dark:bg-chatgpt-dark-assistant',
+                !isSelectionMode ? 'border-transparent' : '',
+                isSelectionMode ? 'cursor-pointer' : '',
+                isSelectionMode && !isSelected ? 'border-transparent hover:border-dashed hover:border-gray-400 dark:hover:border-gray-500' : '',
+                isSelectionMode && isSelected ? 'border-dashed border-blue-500 dark:border-blue-400 bg-blue-50/10 dark:bg-blue-900/10' : ''
             ]"
         >
+            <!-- 选择模式下的复选框 -->
+            <div v-if="isSelectionMode" class="flex items-start pt-3">
+                <input
+                    type="checkbox"
+                    :checked="isSelected"
+                    @change="$emit('toggleSelection', messageIndex)"
+                    class="w-5 h-5 cursor-pointer accent-chatgpt-accent dark:accent-chatgpt-dark-accent rounded"
+                />
+            </div>
+
             <!-- Avatar -->
             <div
                 :class="[
@@ -595,12 +621,13 @@ const handleEdit = () => {
                 <!-- User Label -->
                 <div class="flex flex-col gap-1 mb-1">
                     <!-- 第一行：名称和模型ID标签 -->
+                    <!-- 第一行：名称和模型ID标签 -->
                     <div class="flex items-center gap-2">
                         <span class="text-sm font-bold text-chatgpt-text dark:text-chatgpt-dark-text">
                             {{ isUser ? '你' : (message.modelName || modelName || 'AI') }}
                         </span>
                         <!-- 模型ID标签（仅AI消息） -->
-                        <span v-if="!isUser && message.modelId" class="inline-block px-2 py-0.5 text-[10px] bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 rounded font-mono border border-blue-200 dark:border-blue-800">
+                        <span v-if="!isUser && message.modelId" class="inline-flex items-center px-1.5 py-0.5 text-[10px] bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 rounded font-mono border border-blue-200 dark:border-blue-800">
                             {{ message.modelId }}
                         </span>
                     </div>
@@ -657,7 +684,7 @@ const handleEdit = () => {
                 <!-- Streaming Cursor is now handled by CSS ::after on .is-streaming elements -->
 
                 <!-- Actions for AI messages (visible on hover) -->
-                <div v-if="!isUser && !message.streaming && message.content" class="flex items-center gap-0.5 mt-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                <div v-if="!isUser && !message.streaming && message.content && !isSelectionMode" class="flex items-center gap-0.5 mt-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
                     <button
                         @click="copyToClipboard"
                         class="p-1 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-md text-chatgpt-subtext hover:text-chatgpt-text transition-colors flex items-center gap-1"
@@ -674,7 +701,7 @@ const handleEdit = () => {
                 </div>
 
                 <!-- Actions for User messages (visible on hover) -->
-                <div v-if="isUser && !isStreaming" class="flex items-center gap-0.5 mt-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                <div v-if="isUser && !isStreaming && !isSelectionMode" class="flex items-center gap-0.5 mt-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
                     <button
                         @click="handleEdit"
                         class="p-1 hover:bg-blue-100 dark:hover:bg-blue-900/30 rounded-md text-chatgpt-subtext hover:text-blue-600 dark:hover:text-blue-400 transition-colors flex items-center gap-1 text-xs"
@@ -700,7 +727,6 @@ const handleEdit = () => {
             <div
                 v-if="previewImage"
                 class="fixed inset-0 bg-black/90 z-[9999] flex items-center justify-center p-4 backdrop-blur-sm"
-                @click="closeImagePreview"
             >
                 <button
                     @click.stop="closeImagePreview"
@@ -816,8 +842,12 @@ const handleEdit = () => {
     @apply pl-1;
 }
 
-.prose blockquote {
-    @apply border-l-4 border-chatgpt-accent dark:border-chatgpt-dark-accent pl-4 italic text-gray-600 dark:text-gray-400 my-4 bg-gray-50 dark:bg-gray-800/50 py-2 rounded-r-lg;
+.markdown-body blockquote {
+    @apply border-l-4 border-emerald-500 pl-4 py-1 my-2 bg-transparent text-gray-500 dark:text-gray-400 not-italic flex items-center;
+}
+
+.markdown-body blockquote p {
+    @apply m-0;
 }
 
 .prose a {

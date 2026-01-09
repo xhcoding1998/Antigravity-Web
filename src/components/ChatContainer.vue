@@ -1,5 +1,5 @@
 <script setup>
-import { ref, onUpdated, nextTick, computed } from 'vue';
+import { ref, watch, nextTick, computed } from 'vue';
 import MessageItem from './MessageItem.vue';
 
 const props = defineProps({
@@ -7,10 +7,12 @@ const props = defineProps({
     modelName: String,
     isStreaming: Boolean,
     diagramEnabled: Boolean,
-    codeTheme: String
+    codeTheme: String,
+    isSelectionMode: Boolean,
+    selectedMessageIds: Set
 });
 
-const emit = defineEmits(['resend', 'edit']);
+const emit = defineEmits(['resend', 'edit', 'toggleSelection']);
 
 const scrollContainer = ref(null);
 
@@ -28,9 +30,14 @@ const scrollToBottom = () => {
     }
 };
 
-onUpdated(() => {
-    nextTick(scrollToBottom);
-});
+// 使用 watch 监听消息变化来触发滚动，而不是每次组件更新都滚动
+watch(() => props.messages, (newMessages, oldMessages) => {
+    // 只有在非选择模式下才滚动
+    // 由于 deep watch，任何内容变化（包括流式输出）都会触发
+    if (!props.isSelectionMode) {
+        nextTick(scrollToBottom);
+    }
+}, { deep: true });
 
 const handleResend = (messageIndex) => {
     emit('resend', messageIndex);
@@ -66,8 +73,11 @@ const handleEdit = (messageIndex) => {
                 :is-streaming="isStreaming"
                 :diagram-enabled="diagramEnabled"
                 :code-theme="codeTheme"
+                :is-selection-mode="isSelectionMode"
+                :is-selected="selectedMessageIds?.has(index)"
                 @resend="handleResend"
                 @edit="handleEdit"
+                @toggle-selection="$emit('toggleSelection', $event)"
             />
         </div>
     </div>
