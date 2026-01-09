@@ -114,15 +114,32 @@ function generateModelName(modelId) {
     let name = 'Claude';
 
     // 提取版本号和型号
+    // 支持格式: claude-3-5-sonnet, claude-sonnet-4-20250514, claude-opus-4-5-20251101
+    let version = '';
+
+    // 查找连续的数字部分，可能是 "3-5" 或 "4" 或 "4-5" 格式
+    for (let i = 0; i < parts.length - 1; i++) {
+      if (/^\d+$/.test(parts[i])) {
+        version = parts[i];
+        // 检查下一个部分是否也是数字，且小于10（避免将日期误识别为版本号）
+        // 例如: 3-5 中的 5 是版本号，但 4-20250514 中的 20250514 是日期
+        if (i + 1 < parts.length && /^\d+$/.test(parts[i + 1])) {
+          const nextNum = parseInt(parts[i + 1]);
+          if (nextNum < 10) {
+            version += '.' + parts[i + 1];
+          }
+        }
+        break;
+      }
+    }
+
+    // 提取型号
     if (parts.includes('opus')) {
-      const versionMatch = modelId.match(/(\d+(?:\.\d+)?)/);
-      name += versionMatch ? ` ${versionMatch[1]} Opus` : ' Opus';
+      name += version ? ` ${version} Opus` : ' Opus';
     } else if (parts.includes('sonnet')) {
-      const versionMatch = modelId.match(/(\d+(?:\.\d+)?)/);
-      name += versionMatch ? ` ${versionMatch[1]} Sonnet` : ' Sonnet';
+      name += version ? ` ${version} Sonnet` : ' Sonnet';
     } else if (parts.includes('haiku')) {
-      const versionMatch = modelId.match(/(\d+(?:\.\d+)?)/);
-      name += versionMatch ? ` ${versionMatch[1]} Haiku` : ' Haiku';
+      name += version ? ` ${version} Haiku` : ' Haiku';
     }
 
     // 添加thinking标识

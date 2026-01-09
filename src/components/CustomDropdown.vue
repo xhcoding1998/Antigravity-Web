@@ -67,10 +67,16 @@
                                 : 'text-chatgpt-text dark:text-chatgpt-dark-text hover:bg-gray-50 dark:hover:bg-chatgpt-dark-user'
                         ]"
                     >
-                        <div class="flex items-center justify-between">
-                            <span class="truncate">{{ option.label }}</span>
-                            <span v-if="option.badge" class="text-xs text-gray-500 dark:text-gray-400 ml-2">
-                                {{ option.badge }}
+                        <div class="flex flex-col">
+                            <div class="flex items-center justify-between">
+                                <span class="truncate">{{ option.label }}</span>
+                                <span v-if="option.badge" class="text-xs text-gray-500 dark:text-gray-400 ml-2 shrink-0">
+                                    {{ option.badge }}
+                                </span>
+                            </div>
+                            <!-- 显示模型ID -->
+                            <span class="text-xs text-gray-400 dark:text-gray-500 mt-0.5 font-mono">
+                                {{ option.value }}
                             </span>
                         </div>
                     </button>

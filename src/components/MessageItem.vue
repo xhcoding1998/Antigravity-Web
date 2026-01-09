@@ -593,10 +593,18 @@ const handleEdit = () => {
             <div class="flex flex-col gap-2 min-w-0 flex-1 relative">
                 <!-- User Label -->
                 <!-- User Label -->
-                <div class="flex items-center gap-2 mb-0.5">
-                    <span class="text-xs font-bold text-chatgpt-text dark:text-chatgpt-dark-text">
-                        {{ isUser ? '你' : (message.modelName || modelName || 'AI') }}
-                    </span>
+                <div class="flex flex-col gap-1 mb-1">
+                    <!-- 第一行：名称和模型ID标签 -->
+                    <div class="flex items-center gap-2">
+                        <span class="text-sm font-bold text-chatgpt-text dark:text-chatgpt-dark-text">
+                            {{ isUser ? '你' : (message.modelName || modelName || 'AI') }}
+                        </span>
+                        <!-- 模型ID标签（仅AI消息） -->
+                        <span v-if="!isUser && message.modelId" class="inline-block px-2 py-0.5 text-[10px] bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 rounded font-mono border border-blue-200 dark:border-blue-800">
+                            {{ message.modelId }}
+                        </span>
+                    </div>
+                    <!-- 第二行：时间 -->
                     <span class="text-[10px] text-chatgpt-subtext dark:text-chatgpt-dark-subtext" v-if="message.timestamp">
                         {{ new Date(message.timestamp).toLocaleTimeString() }}
                     </span>

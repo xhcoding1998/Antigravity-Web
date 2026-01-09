@@ -641,7 +641,8 @@ export function useChat() {
             content: '',
             timestamp: new Date().toISOString(),
             streaming: true,
-            modelName: selectedModel.value?.name // 记录当前使用的模型名称
+            modelName: selectedModel.value?.name, // 记录当前使用的模型名称
+            modelId: selectedModelId.value // 记录当前使用的模型ID
         };
         messages.value.push(assistantMessage);
 

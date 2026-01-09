@@ -256,15 +256,25 @@ const startAddModel = () => {
     newModel.value = { id: '', name: '', desc: '' };
     showAddModel.value = true;
 
-    // 滚动到底部以显示添加表单
+    // 自动滚动到新增表单
     nextTick(() => {
-        const contentArea = document.querySelector('.overflow-y-auto');
-        if (contentArea) {
-            contentArea.scrollTo({
-                top: contentArea.scrollHeight,
-                behavior: 'smooth'
-            });
-        }
+        setTimeout(() => {
+            // 方法1: 尝试滚动到表单元素
+            if (addModelFormRef.value) {
+                addModelFormRef.value.scrollIntoView({ behavior: 'smooth', block: 'end' });
+            }
+
+            // 方法2: 同时滚动容器到底部（确保表单可见）
+            const contentArea = document.querySelector('.flex-1.overflow-y-auto');
+            if (contentArea) {
+                setTimeout(() => {
+                    contentArea.scrollTo({
+                        top: contentArea.scrollHeight,
+                        behavior: 'smooth'
+                    });
+                }, 50);
+            }
+        }, 150);
     });
 };
 
@@ -283,17 +293,6 @@ const addModel = () => {
     showAddModel.value = false;
     newModel.value = { id: '', name: '', desc: '' };
     showToastMessage('模型添加成功', 'success');
-
-    // 自动滚动到底部
-    nextTick(() => {
-        const contentArea = document.querySelector('.overflow-y-auto');
-        if (contentArea) {
-            contentArea.scrollTo({
-                top: contentArea.scrollHeight,
-                behavior: 'smooth'
-            });
-        }
-    });
 };
 
 // 编辑模型
@@ -497,6 +496,9 @@ const newApiConfig = ref({
     apiKey: ''
 });
 
+// 添加模型表单引用
+const addModelFormRef = ref(null);
+
 const startAddApiConfig = () => {
     newApiConfig.value = {
         name: '',
@@ -510,9 +512,11 @@ const startAddApiConfig = () => {
 
     // 自动滚动到新增表单
     nextTick(() => {
-        if (addApiConfigFormRef.value) {
-            addApiConfigFormRef.value.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        }
+        setTimeout(() => {
+            if (addApiConfigFormRef.value) {
+                addApiConfigFormRef.value.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }
+        }, 100);
     });
 };
 
@@ -866,7 +870,7 @@ const handleDeleteApiConfig = (groupId) => {
                     </div>
 
                     <!-- 添加模型表单 -->
-                    <div v-if="showAddModel" class="border-2 border-dashed border-chatgpt-accent dark:border-chatgpt-dark-accent rounded-xl p-5 bg-gradient-to-br from-emerald-50/50 to-teal-50/30 dark:from-emerald-900/10 dark:to-teal-900/10 space-y-4">
+                    <div ref="addModelFormRef" v-if="showAddModel" class="border-2 border-dashed border-chatgpt-accent dark:border-chatgpt-dark-accent rounded-xl p-5 bg-gradient-to-br from-emerald-50/50 to-teal-50/30 dark:from-emerald-900/10 dark:to-teal-900/10 space-y-4">
                         <div class="flex items-center justify-between mb-2">
                             <h4 class="font-semibold text-gray-900 dark:text-chatgpt-dark-text flex items-center gap-2">
                                 <Plus :size="18" class="text-chatgpt-accent" />
