@@ -174,7 +174,7 @@ const handleShare = async () => {
     max-width: 90vw;
     background: white; /* 浅色模式背景 */
     border-radius: 16px;
-    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.2);
+    box-shadow: 0 0 0 1px rgba(0,0,0,0.02), 0 30px 80px rgba(0,0,0,0.15), 0 10px 30px rgba(0,0,0,0.05);
     overflow: hidden;
     display: flex;
     flex-direction: column;

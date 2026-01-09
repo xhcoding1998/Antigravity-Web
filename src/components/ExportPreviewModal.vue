@@ -1,6 +1,7 @@
 <script setup>
 import { ref, onMounted, watch, nextTick } from 'vue';
-import { X, Download, FileText, Image as ImageIcon } from 'lucide-vue-next';
+import { X, Download, FileText, Image as ImageIcon, Copy, Check } from 'lucide-vue-next';
+import { copyDOMAsImage } from '../utils/exportUtils';
 
 const props = defineProps({
     show: Boolean,
@@ -47,12 +48,34 @@ const renderPreview = () => {
     }
 };
 
+const isCopying = ref(false);
+const copySuccess = ref(false);
+
 const handleConfirm = () => {
     if (!filename.value.trim()) {
         alert('请输入文件名');
         return;
     }
     emit('confirm', filename.value);
+};
+
+const handleCopy = async () => {
+    if (isCopying.value || !props.content || !(props.content instanceof HTMLElement)) return;
+
+    isCopying.value = true;
+    try {
+        const result = await copyDOMAsImage(props.content);
+        if (result.success) {
+            copySuccess.value = true;
+            setTimeout(() => {
+                copySuccess.value = false;
+            }, 2000);
+        } else {
+            alert('复制失败: ' + result.error);
+        }
+    } finally {
+        isCopying.value = false;
+    }
 };
 
 </script>
@@ -136,10 +159,20 @@ const handleConfirm = () => {
                         <!-- Buttons -->
                         <div class="flex gap-3 w-full md:w-auto">
                             <button
+                                v-if="format !== 'image'"
                                 @click="$emit('close')"
                                 class="flex-1 md:flex-none px-6 py-2.5 border border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors font-medium"
                             >
                                 取消
+                            </button>
+                            <button
+                                v-else
+                                @click="handleCopy"
+                                :disabled="isCopying"
+                                class="flex-1 md:flex-none px-6 py-2.5 border border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors font-medium flex items-center justify-center gap-2"
+                            >
+                                <component :is="copySuccess ? Check : Copy" :size="18" />
+                                {{ copySuccess ? '已复制' : (isCopying ? '复制中...' : '复制图片') }}
                             </button>
                             <button
                                 @click="handleConfirm"

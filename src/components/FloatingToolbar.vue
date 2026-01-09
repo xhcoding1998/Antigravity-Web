@@ -66,7 +66,7 @@ const startDrag = (e) => {
 
 // 点击外部关闭
 const handleClickOutside = (e) => {
-  if (!e.target.closest('.floating-dock') && !e.target.closest('.export-menu')) {
+  if (!e.target.closest('.floating-dock') && !e.target.closest('.dock-menu')) {
     showExportMenu.value = false;
   }
 };
@@ -194,15 +194,17 @@ const toggleCollapse = () => {
              </div>
 
             <!-- 导出菜单 (左侧弹出) -->
-            <Transition name="fade">
-                <div v-if="showExportMenu && !isSelectionMode && !isCollapsed" class="dock-menu">
-                    <div class="menu-header">导出当前对话</div>
-                    <button @click="handleExportAll('image')"><Image :size="14" />图片</button>
-                    <button @click="handleExportAll('pdf')"><FileText :size="14" />PDF</button>
-                    <button @click="handleExportAll('markdown')"><Download :size="14" />MD</button>
-                </div>
-            </Transition>
         </div>
+
+        <!-- 导出菜单 (移出 overflow: hidden 容器) -->
+        <Transition name="fade">
+            <div v-if="showExportMenu && !isSelectionMode && !isCollapsed" class="dock-menu">
+                <div class="menu-header">导出当前对话</div>
+                <button @click="handleExportAll('image')"><Image :size="14" />图片</button>
+                <button @click="handleExportAll('pdf')"><FileText :size="14" />PDF</button>
+                <button @click="handleExportAll('markdown')"><Download :size="14" />MD</button>
+            </div>
+        </Transition>
       </div>
     </Transition>
   </Teleport>
@@ -410,8 +412,8 @@ const toggleCollapse = () => {
 .dock-menu {
     position: absolute;
     right: 100%;
-    top: 30px; /* 调整位置 */
-    margin-right: 8px;
+    top: 94px; /* 调整位置以对齐按钮 */
+    margin-right: 12px;
     background: rgba(255,255,255,0.95);
     backdrop-filter: blur(12px);
     border-radius: 12px;
@@ -420,6 +422,7 @@ const toggleCollapse = () => {
     min-width: 120px;
     border: 1px solid rgba(0,0,0,0.05);
     animation: fade-in-left 0.2s ease;
+    pointer-events: auto; /* 必须启用，因为父容器禁用了 */
 }
 .dark .dock-menu {
     background: rgba(30,31,36,0.95);

@@ -40,7 +40,7 @@ export function prepareMacOSContainerDOM(messages, title = '对话导出', isDar
     <div style="
       background: ${containerBg};
       border-radius: 16px;
-      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.2);
+      box-shadow: 0 0 0 1px rgba(0,0,0,0.02), 0 30px 80px rgba(0,0,0,0.15), 0 10px 30px rgba(0,0,0,0.05);
       overflow: hidden;
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Helvetica Neue', Arial, sans-serif;
       border: 1px solid ${headerBorder};
@@ -273,6 +273,35 @@ export async function downloadDOMAsImage(element, filename) {
     return { success: true };
   } catch (error) {
     console.error('导出图片失败:', error);
+    return { success: false, error: error.message };
+  }
+}
+
+/**
+ * 复制 DOM 为图片到剪贴板
+ */
+export async function copyDOMAsImage(element) {
+  try {
+    const canvas = await renderElementToCanvas(element);
+    return new Promise((resolve) => {
+        canvas.toBlob(async (blob) => {
+            if (!blob) {
+                resolve({ success: false, error: '生成图片失败' });
+                return;
+            }
+            try {
+                // Clipboard API 需要 HTTPS 或 localhost
+                const item = new ClipboardItem({ 'image/png': blob });
+                await navigator.clipboard.write([item]);
+                resolve({ success: true });
+            } catch (err) {
+                console.error('写入剪贴板失败:', err);
+                resolve({ success: false, error: err.message });
+            }
+        });
+    });
+  } catch (error) {
+    console.error('复制图片失败:', error);
     return { success: false, error: error.message };
   }
 }
