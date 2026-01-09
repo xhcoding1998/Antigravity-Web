@@ -582,11 +582,11 @@ const handleMessageClick = (event) => {
 </script>
 
 <template>
-    <div class="py-3 w-full flex justify-center transition-all duration-200">
+    <div class="py-3 w-full flex justify-center">
         <div
             @click="handleMessageClick"
             :class="[
-                'max-w-4xl w-full flex gap-4 px-6 md:px-5 group rounded-xl py-3 transition-colors duration-200 border-2',
+                'max-w-4xl w-full flex gap-4 px-6 md:px-5 group rounded-xl py-3 border-2',
                 isUser ? 'bg-chatgpt-user dark:bg-chatgpt-dark-user' : 'bg-chatgpt-assistant dark:bg-chatgpt-dark-assistant',
                 !isSelectionMode ? 'border-transparent' : '',
                 isSelectionMode ? 'cursor-pointer' : '',
@@ -642,7 +642,7 @@ const handleMessageClick = (event) => {
                     <div
                         v-for="(img, idx) in allImages"
                         :key="idx"
-                        class="relative rounded-xl border border-chatgpt-border dark:border-chatgpt-dark-border shadow-sm dark:shadow-dark-card hover:shadow-md dark:hover:shadow-dark-elevated transition-all cursor-pointer group/img"
+                        class="relative rounded-xl border border-chatgpt-border dark:border-chatgpt-dark-border shadow-sm dark:shadow-dark-card hover:shadow-md dark:hover:shadow-dark-elevated cursor-pointer group/img"
                         @click="openImagePreview(img)"
                     >
                         <img
@@ -654,7 +654,7 @@ const handleMessageClick = (event) => {
                             alt="Message image"
                             @click="openImagePreview(img)"
                         />
-                        <div class="absolute inset-0 bg-black/0 group-hover/img:bg-black/10 transition-colors flex items-center justify-center pointer-events-none rounded-xl">
+                        <div class="absolute inset-0 bg-black/0 group-hover/img:bg-black/10 flex items-center justify-center pointer-events-none rounded-xl">
                             <span class="text-white text-xs opacity-0 group-hover/img:opacity-100 bg-black/50 px-2 py-1 rounded whitespace-nowrap">点击查看大图</span>
                         </div>
                     </div>

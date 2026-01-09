@@ -47,14 +47,14 @@ const confirmClearHistory = () => {
 </script>
 
 <template>
-    <div class="flex flex-col h-full bg-chatgpt-sidebar dark:bg-chatgpt-dark-sidebar w-[280px] border-r border-chatgpt-border dark:border-chatgpt-dark-border text-chatgpt-text dark:text-chatgpt-dark-text transition-colors duration-200">
+    <div class="flex flex-col h-full bg-chatgpt-sidebar dark:bg-chatgpt-dark-sidebar w-[280px] border-r border-chatgpt-border dark:border-chatgpt-dark-border text-chatgpt-text dark:text-chatgpt-dark-text">
         <!-- New Chat Button -->
         <div class="p-4">
             <button
                 @click="$emit('new')"
-                class="flex items-center justify-center gap-2 w-full px-4 py-3 rounded-xl border-2 border-chatgpt-border dark:border-chatgpt-dark-border bg-white dark:bg-chatgpt-dark-user hover:bg-gray-50 dark:hover:bg-chatgpt-dark-assistant hover:border-gray-300 dark:hover:border-gray-600 transition-all duration-200 text-sm font-semibold shadow-card dark:shadow-dark-card hover:shadow-elevated dark:hover:shadow-dark-elevated group"
+                class="flex items-center justify-center gap-2 w-full px-4 py-3 rounded-xl border-2 border-chatgpt-border dark:border-chatgpt-dark-border bg-white dark:bg-chatgpt-dark-user hover:bg-gray-50 dark:hover:bg-chatgpt-dark-assistant hover:border-gray-300 dark:hover:border-gray-600 text-sm font-semibold shadow-card dark:shadow-dark-card hover:shadow-elevated dark:hover:shadow-dark-elevated group"
             >
-                <Plus :size="18" class="text-chatgpt-subtext dark:text-chatgpt-dark-subtext group-hover:text-chatgpt-text dark:group-hover:text-chatgpt-dark-text transition-colors" />
+                <Plus :size="18" class="text-chatgpt-subtext dark:text-chatgpt-dark-subtext group-hover:text-chatgpt-text dark:group-hover:text-chatgpt-dark-text" />
                 新建对话
             </button>
         </div>
@@ -69,19 +69,19 @@ const confirmClearHistory = () => {
                 :key="chat.id"
                 @click="$emit('select', chat.id)"
                 :class="[
-                    'group flex items-center gap-3 px-3 py-3 rounded-xl cursor-pointer transition-all duration-200 relative text-sm',
+                    'group flex items-center gap-3 px-3 py-3 rounded-xl cursor-pointer relative text-sm',
                     currentChatId === chat.id ? 'bg-white dark:bg-chatgpt-dark-user shadow-card dark:shadow-dark-card font-medium' : 'hover:bg-white/60 dark:hover:bg-chatgpt-dark-user/50'
                 ]"
             >
-                <MessageSquare :size="18" :class="['shrink-0 transition-colors', currentChatId === chat.id ? 'text-chatgpt-accent dark:text-chatgpt-dark-accent' : 'text-chatgpt-subtext dark:text-chatgpt-dark-subtext']" />
+                <MessageSquare :size="18" :class="['shrink-0', currentChatId === chat.id ? 'text-chatgpt-accent dark:text-chatgpt-dark-accent' : 'text-chatgpt-subtext dark:text-chatgpt-dark-subtext']" />
                 <div class="flex-1 truncate pr-6" :title="new Date(parseInt(chat.id)).toLocaleString()">
                     {{ chat.title }}
                 </div>
 
-                <div class="absolute right-2 flex items-center opacity-0 group-hover:opacity-100 transition-opacity bg-inherit pr-1">
+                <div class="absolute right-2 flex items-center opacity-0 group-hover:opacity-100 bg-inherit pr-1">
                     <button
                         @click.stop="$emit('delete', chat.id)"
-                        class="p-1.5 hover:bg-red-50 dark:hover:bg-red-900/30 hover:text-red-500 dark:hover:text-red-400 rounded-lg transition-all duration-200"
+                        class="p-1.5 hover:bg-red-50 dark:hover:bg-red-900/30 hover:text-red-500 dark:hover:text-red-400 rounded-lg"
                     >
                         <Trash2 :size="16" />
                     </button>
@@ -90,7 +90,7 @@ const confirmClearHistory = () => {
         </div>
 
         <!-- Footer -->
-        <div class="p-4 space-y-3 border-t border-chatgpt-border dark:border-chatgpt-dark-border bg-chatgpt-sidebar dark:bg-chatgpt-dark-sidebar transition-colors duration-200">
+        <div class="p-4 space-y-3 border-t border-chatgpt-border dark:border-chatgpt-dark-border bg-chatgpt-sidebar dark:bg-chatgpt-dark-sidebar">
             <!-- Enhanced Model Selector -->
             <div class="relative space-y-3">
                  <!-- Group Selector -->
@@ -131,17 +131,17 @@ const confirmClearHistory = () => {
 
                 <button
                     @click="handleClearHistory"
-                    class="flex items-center gap-3 w-full px-3 py-2.5 rounded-xl hover:bg-white dark:hover:bg-chatgpt-dark-user transition-all duration-200 text-sm text-chatgpt-subtext dark:text-chatgpt-dark-subtext hover:text-chatgpt-text dark:hover:text-chatgpt-dark-text font-medium group"
+                    class="flex items-center gap-3 w-full px-3 py-2.5 rounded-xl hover:bg-white dark:hover:bg-chatgpt-dark-user text-sm text-chatgpt-subtext dark:text-chatgpt-dark-subtext hover:text-chatgpt-text dark:hover:text-chatgpt-dark-text font-medium group"
                 >
-                    <Trash2 :size="18" class="group-hover:text-red-500 transition-colors" />
+                    <Trash2 :size="18" class="group-hover:text-red-500" />
                     清空历史
                 </button>
 
                 <button
                     @click="$emit('openSettings')"
-                    class="flex items-center gap-3 w-full px-3 py-2.5 rounded-xl hover:bg-white dark:hover:bg-chatgpt-dark-user transition-all duration-200 text-sm text-chatgpt-subtext dark:text-chatgpt-dark-subtext hover:text-chatgpt-text dark:hover:text-chatgpt-dark-text font-medium group"
+                    class="flex items-center gap-3 w-full px-3 py-2.5 rounded-xl hover:bg-white dark:hover:bg-chatgpt-dark-user text-sm text-chatgpt-subtext dark:text-chatgpt-dark-subtext hover:text-chatgpt-text dark:hover:text-chatgpt-dark-text font-medium group"
                 >
-                    <Settings :size="18" class="group-hover:text-chatgpt-accent dark:group-hover:text-chatgpt-dark-accent transition-colors" />
+                    <Settings :size="18" class="group-hover:text-chatgpt-accent dark:group-hover:text-chatgpt-dark-accent" />
                     设置
                 </button>
             </div>

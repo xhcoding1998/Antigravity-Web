@@ -458,7 +458,7 @@ ${contextStr}`;
 </script>
 
 <template>
-    <div class="flex h-screen w-full bg-chatgpt-main dark:bg-chatgpt-dark-main overflow-hidden text-chatgpt-text dark:text-chatgpt-dark-text font-manrope transition-colors duration-200">
+    <div class="flex h-screen w-full bg-chatgpt-main dark:bg-chatgpt-dark-main overflow-hidden text-chatgpt-text dark:text-chatgpt-dark-text font-manrope">
         <!-- Sidebar -->
         <Sidebar
             :history="history"
@@ -481,7 +481,7 @@ ${contextStr}`;
         <!-- Main Content -->
         <main class="relative flex-1 flex flex-col overflow-hidden">
             <!-- Mobile Header -->
-            <div class="md:hidden p-4 border-b border-chatgpt-border dark:border-chatgpt-dark-border flex justify-between items-center bg-chatgpt-sidebar dark:bg-chatgpt-dark-sidebar transition-colors duration-200">
+            <div class="md:hidden p-4 border-b border-chatgpt-border dark:border-chatgpt-dark-border flex justify-between items-center bg-chatgpt-sidebar dark:bg-chatgpt-dark-sidebar">
                 <span class="font-bold text-sm">{{ selectedModel?.name }}</span>
                 <button @click="handleNewChat" class="p-2 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-md transition-colors">
                     <Plus :size="20" />
@@ -570,12 +570,14 @@ ${contextStr}`;
             :visible="showFloatingToolbar && messages.length > 0"
             :is-selection-mode="isSelectionMode"
             :selected-count="selectedMessageIds.size"
+            :is-dark="isDark"
             @toggle-selection-mode="toggleSelectionMode"
             @export-as-image="handleExportAsImage"
             @export-as-pdf="handleExportAsPDF"
             @export-as-markdown="handleExportAsMarkdown"
             @export-all="handleExportAll"
             @summarize="handleSummarize"
+            @toggle-theme="toggleTheme"
             @close="showFloatingToolbar = false"
         />
 

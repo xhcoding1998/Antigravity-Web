@@ -1,6 +1,6 @@
 <script setup>
 import { ref, watch, nextTick } from 'vue';
-import { CheckSquare, Image, FileText, Download, MoreHorizontal, GripHorizontal, ChevronLeft, ChevronRight, Sparkles } from 'lucide-vue-next';
+import { CheckSquare, Image, FileText, Download, MoreHorizontal, GripHorizontal, ChevronLeft, ChevronRight, Sparkles, Moon, Sun } from 'lucide-vue-next';
 
 const props = defineProps({
   visible: {
@@ -14,6 +14,10 @@ const props = defineProps({
   selectedCount: {
     type: Number,
     default: 0
+  },
+  isDark: {
+    type: Boolean,
+    default: false
   }
 });
 
@@ -24,6 +28,7 @@ const emit = defineEmits([
   'export-as-markdown',
   'exportAll',
   'summarize',
+  'toggleTheme',
   'close'
 ]);
 
@@ -146,7 +151,7 @@ const toggleCollapse = () => {
                     </button>
 
                     <template v-if="isSelectionMode">
-                         <div class="divider-dot"></div>
+                         <div class="division-dot"></div>
                          <button @click="handleExportClick('image')" class="dock-button" title="导出图片" :disabled="selectedCount === 0">
                             <Image :size="18" />
                         </button>
@@ -176,7 +181,21 @@ const toggleCollapse = () => {
                         >
                             <MoreHorizontal :size="18" />
                         </button>
+
                     </template>
+
+                    <!-- 分割线 -->
+                    <div class="division-dot"></div>
+
+                    <!-- 主题切换 -->
+                    <button
+                        @click="$emit('toggleTheme')"
+                        class="dock-button"
+                        :title="isDark ? '切换亮色模式' : '切换深色模式'"
+                    >
+                        <Sun v-if="isDark" :size="18" class="text-amber-400" />
+                        <Moon v-else :size="18" class="text-slate-600" />
+                    </button>
                 </div>
             </div>
 
@@ -244,9 +263,10 @@ const toggleCollapse = () => {
 }
 
 .dark .floating-dock {
-    background: rgba(30, 31, 36, 0.9);
-    border-color: rgba(255, 255, 255, 0.08);
-    box-shadow: -4px 4px 24px rgba(0, 0, 0, 0.4);
+    background: rgba(20, 20, 23, 0.85); /* 更深沉的背景 */
+    border-color: rgba(255, 255, 255, 0.1);
+    box-shadow: -4px 4px 24px rgba(0, 0, 0, 0.5); /* 更重的阴影 */
+    backdrop-filter: blur(24px); /* 加强毛玻璃 */
 }
 
 .floating-dock:hover {
@@ -389,6 +409,9 @@ const toggleCollapse = () => {
     border-radius: 50%;
     background: rgba(0,0,0,0.1);
     margin: 2px 0;
+}
+.dark .division-dot {
+    background: rgba(255,255,255,0.2);
 }
 
 .badge {
