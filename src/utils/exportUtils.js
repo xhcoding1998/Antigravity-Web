@@ -27,7 +27,7 @@ export function prepareMacOSContainerDOM(messages, title = '对话导出', isDar
   // 默认样式，适合直接展示
   container.className = 'export-container-preview';
   container.style.width = '100%';
-  container.style.maxWidth = '900px';
+  container.style.maxWidth = '100%';
   container.style.margin = '0 auto';
 
   // macOS窗口样式（与 SummaryModal.vue 统一）
@@ -227,7 +227,7 @@ async function renderElementToCanvas(element) {
         position: 'fixed',
         left: '-10000px',
         top: '0',
-        width: '800px', // 固定宽度，类似 A4 比例或标准网页宽
+        width: '1000px', // 固定宽度，确保导出清晰度和排版一致
         height: 'auto',
         zIndex: '-1000',
         overflow: 'visible' // 确保内容不被裁剪

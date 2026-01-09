@@ -371,7 +371,13 @@ const handleSummarize = async () => {
         // 构造上下文
         const validMessages = messages.value.filter(m => !m.error);
         const contextStr = validMessages
-            .map(m => `[${m.role.toUpperCase()}]: ${m.content}`)
+            .map(m => {
+                // 移除 Markdown 图片语法，避免 base64 过长
+                // 匹配 ![...](...) 格式
+                let text = m.content || '';
+                text = text.replace(/!\[.*?\]\(.*?\)/g, '[图片]');
+                return `[${m.role.toUpperCase()}]: ${text}`;
+            })
             .join('\n\n');
 
         const prompt = `请作为一名资深的会议/对话记录助手，对以下对话内容进行结构化、专业且精简的总结。
