@@ -218,6 +218,10 @@ const showExportPreview = ref(false);
 const previewContent = ref(null);
 const exportFormat = ref('image'); // 'image', 'pdf', 'markdown'
 const exportFilename = ref('');
+const exportMessages = ref([]);
+const exportTitle = ref('');
+const exportIndices = ref(null);
+const exportIsDark = ref(false);
 
 // 选中的消息列表
 const selectedMessages = computed(() => {
@@ -270,6 +274,10 @@ const prepareExport = (format, scope) => {
         }
 
         const title = currentChat.value?.title || '对话导出';
+        exportTitle.value = title;
+        exportMessages.value = targetMessages;
+        exportIndices.value = targetIndices;
+        exportIsDark.value = isDark.value;
 
         // 生成带时间戳的文件名: 标题-YYYYMMDD-HHmm
         const now = new Date();
@@ -280,15 +288,8 @@ const prepareExport = (format, scope) => {
         if (format === 'markdown') {
             previewContent.value = generateMarkdownContent(targetMessages, title, targetIndices);
         } else {
-            // Image 或 PDF 都使用 macOS 风格容器预览
-            try {
-                const dom = prepareMacOSContainerDOM(targetMessages, title, isDark.value, targetIndices);
-                if (!dom) throw new Error('DOM构建返回空');
-                previewContent.value = dom;
-            } catch (domErr) {
-                console.error('DOM Build Error:', domErr);
-                throw new Error(`预览界面构建失败: ${domErr.message}`);
-            }
+            // DOM 构建现在延迟到 Modal 内部或根据设备模式处理
+            previewContent.value = null; // 标记由 Modal 渲染
         }
 
         exportFormat.value = format;
@@ -300,15 +301,16 @@ const prepareExport = (format, scope) => {
 };
 
 // 处理导出确认
-const handleExportConfirm = async (filename) => {
+const handleExportConfirm = async ({ filename, width, dom }) => {
     showToast('正在导出...', 'info');
 
     let result;
     try {
+        const targetDOM = dom || previewContent.value;
         if (exportFormat.value === 'image') {
-            result = await downloadDOMAsImage(previewContent.value, filename);
+            result = await downloadDOMAsImage(targetDOM, filename, { width });
         } else if (exportFormat.value === 'pdf') {
-            result = await downloadDOMAsPDF(previewContent.value, filename);
+            result = await downloadDOMAsPDF(targetDOM, filename, { width });
         } else {
             result = downloadMarkdownString(previewContent.value, filename);
         }
@@ -603,6 +605,10 @@ ${contextStr}`;
         <ExportPreviewModal
             :show="showExportPreview"
             :content="previewContent"
+            :messages="exportMessages"
+            :title="exportTitle"
+            :is-dark="exportIsDark"
+            :message-indices="exportIndices"
             :format="exportFormat"
             :default-filename="exportFilename"
             @close="showExportPreview = false"

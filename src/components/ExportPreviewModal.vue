@@ -1,7 +1,7 @@
 <script setup>
 import { ref, onMounted, watch, nextTick } from 'vue';
-import { X, Download, FileText, Image as ImageIcon, Copy, Check } from 'lucide-vue-next';
-import { copyDOMAsImage } from '../utils/exportUtils';
+import { X, Download, FileText, Image as ImageIcon, Copy, Check, Monitor, Smartphone } from 'lucide-vue-next';
+import { copyDOMAsImage, prepareMacOSContainerDOM } from '../utils/exportUtils';
 
 const props = defineProps({
     show: Boolean,
@@ -12,6 +12,10 @@ const props = defineProps({
     // 对于 image/pdf，content 是一个 DOM 元素（容器）
     // 对于 markdown，content 是字符串
     content: [Object, String, HTMLElement],
+    messages: Array,
+    title: String,
+    isDark: Boolean,
+    messageIndices: Object, // Set
     defaultFilename: {
         type: String,
         default: 'ChatExport'
@@ -22,29 +26,54 @@ const emit = defineEmits(['close', 'confirm']);
 
 const filename = ref('');
 const previewContainer = ref(null);
+const renderedDOM = ref(null); // 存储当前渲染好的 DOM
+const selectedDevice = ref('pc'); // 'pc' | 'h5'
+
+const deviceModes = {
+    pc: { renderWidth: 1000, displayWidth: '100%', label: 'PC设备', icon: Monitor },
+    h5: { renderWidth: 400, displayWidth: '400px', label: 'H5移动端', icon: Smartphone }
+};
 
 // 初始化或者重置
 watch(() => props.show, async (newVal) => {
     if (newVal) {
         filename.value = props.defaultFilename;
+        selectedDevice.value = 'pc'; // 默认 PC
         await nextTick();
         renderPreview();
     }
 });
 
+watch(selectedDevice, async () => {
+    await nextTick();
+    renderPreview();
+});
+
 const renderPreview = () => {
-    if (!previewContainer.value || !props.content) return;
+    if (!previewContainer.value) return;
 
     if (props.format === 'markdown') {
         // Markdown 直接显示文本
         return;
     }
 
-    // Image/PDF: 清空容器并插入 DOM 元素
+    // Image/PDF: 根据当前模式生成或获取 DOM
+    const width = deviceModes[selectedDevice.value].renderWidth;
+
+    // 清空容器并插入 DOM 元素
     previewContainer.value.innerHTML = '';
-    // 如果是 DOM 节点，直接 append
-    if (props.content instanceof HTMLElement) {
-        previewContainer.value.appendChild(props.content);
+
+    // 生成新的 DOM
+    renderedDOM.value = prepareMacOSContainerDOM(
+        props.messages,
+        props.title,
+        props.isDark,
+        props.messageIndices,
+        width
+    );
+
+    if (renderedDOM.value) {
+        previewContainer.value.appendChild(renderedDOM.value);
     }
 };
 
@@ -56,7 +85,11 @@ const handleConfirm = () => {
         alert('请输入文件名');
         return;
     }
-    emit('confirm', filename.value);
+    emit('confirm', {
+        filename: filename.value,
+        width: deviceModes[selectedDevice.value].renderWidth,
+        dom: renderedDOM.value
+    });
 };
 
 const handleCopy = async () => {
@@ -72,7 +105,8 @@ const handleCopy = async () => {
                 copySuccess.value = false;
             }, 2000);
         } else {
-            const result = await copyDOMAsImage(props.content);
+            const width = deviceModes[selectedDevice.value].renderWidth;
+            const result = await copyDOMAsImage(renderedDOM.value, { width });
             if (result.success) {
                 copySuccess.value = true;
                 setTimeout(() => {
@@ -109,9 +143,27 @@ const handleCopy = async () => {
                             </div>
                             <div>
                                 <h3 class="text-lg font-bold text-gray-800 dark:text-gray-100">导出预览</h3>
-                                <p class="text-xs text-gray-500 dark:text-gray-400">
-                                    {{ format === 'image' ? '生成图片' : format === 'pdf' ? '生成 PDF 文档' : '生成 Markdown 文本' }}
-                                </p>
+                                <div class="flex items-center gap-2 mt-0.5">
+                                    <p class="text-xs text-gray-500 dark:text-gray-400">
+                                        {{ format === 'image' ? '生成图片' : format === 'pdf' ? '生成 PDF 文档' : '生成 Markdown 文本' }}
+                                    </p>
+                                    <div v-if="format !== 'markdown'" class="flex items-center gap-1.5 ml-4 bg-gray-100 dark:bg-gray-700/50 p-1 rounded-lg">
+                                        <button
+                                            v-for="(mode, key) in deviceModes"
+                                            :key="key"
+                                            @click="selectedDevice = key"
+                                            class="flex items-center gap-1.5 px-3 py-1 rounded-md text-xs font-medium transition-all"
+                                            :class="[
+                                                selectedDevice === key
+                                                    ? 'bg-white dark:bg-gray-600 text-blue-600 dark:text-blue-400 shadow-sm'
+                                                    : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'
+                                            ]"
+                                        >
+                                            <component :is="mode.icon" :size="14" />
+                                            {{ mode.label }}
+                                        </button>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                         <button @click="$emit('close')" class="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full transition-colors text-gray-500">
@@ -140,7 +192,8 @@ const handleCopy = async () => {
                             <div
                                 v-else
                                 ref="previewContainer"
-                                class="preview-stage shadow-lg rounded-lg overflow-hidden bg-white dark:bg-gray-800 origin-top shrink-0"
+                                class="preview-stage shadow-lg rounded-lg overflow-hidden bg-white dark:bg-gray-800 origin-top shrink-0 transition-all duration-300"
+                                :style="{ width: deviceModes[selectedDevice].displayWidth }"
                             >
                                 <!-- Content will be injected here -->
                             </div>
@@ -203,8 +256,9 @@ const handleCopy = async () => {
 
 <style scoped>
 .preview-stage {
-    /* 限制最大宽度，防止内容过宽溢出 */
-    max-width: 100%;
+    /* 移除最大宽度限制，由父容器的 overflow-auto 处理溢出，确保预览宽度准确 */
+    margin-bottom: 40px; /* 底部留白，防止紧贴边缘 */
+    transform-origin: top center;
 }
 
 .custom-scrollbar::-webkit-scrollbar {

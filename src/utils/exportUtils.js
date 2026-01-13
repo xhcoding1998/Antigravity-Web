@@ -20,14 +20,18 @@ function escapeHtml(text) {
  * @param {string} title - 标题
  * @param {boolean} isDark - 主题
  * @param {Set} messageIndices - 选中的消息索引
+ * @param {number} width - 容器宽度
  * @returns {HTMLElement} 构建好的 DOM 元素
  */
-export function prepareMacOSContainerDOM(messages, title = '对话导出', isDark = false, messageIndices = null) {
+export function prepareMacOSContainerDOM(messages, title = '对话导出', isDark = false, messageIndices = null, width = 1000) {
+  const isMobile = width <= 500;
   const container = document.createElement('div');
   // 默认样式，适合直接展示
   container.className = 'export-container-preview';
-  container.style.width = '100%';
-  container.style.maxWidth = '100%';
+  container.style.width = '100%'; // 默认外层容器宽，如果是 mobile，内部 content 会被压缩
+  if (isMobile) {
+      container.style.width = `${width}px`;
+  }
   container.style.margin = '0 auto';
 
   // macOS窗口样式（与 SummaryModal.vue 统一）
@@ -36,10 +40,19 @@ export function prepareMacOSContainerDOM(messages, title = '对话导出', isDar
   const headerBorder = isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)';
   const textColor = isDark ? '#aaaaaa' : '#666666';
 
+  // 移动端优化参数
+  const containerPadding = isMobile ? '8px' : '24px';
+  const headerHeight = isMobile ? '32px' : '44px';
+  const titleFontSize = isMobile ? '12px' : '13px';
+  const dotSize = isMobile ? '10px' : '12px';
+  const dotGap = isMobile ? '6px' : '8px';
+  const footerPadding = isMobile ? '8px 12px' : '12px 24px';
+  const footerFontSize = isMobile ? '10px' : '11px';
+
   container.innerHTML = `
     <div style="
       background: ${containerBg};
-      border-radius: 16px;
+      border-radius: ${isMobile ? '12px' : '16px'};
       box-shadow: 0 0 0 1px rgba(0,0,0,0.02), 0 30px 80px rgba(0,0,0,0.15), 0 10px 30px rgba(0,0,0,0.05);
       overflow: hidden;
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Helvetica Neue', Arial, sans-serif;
@@ -49,22 +62,22 @@ export function prepareMacOSContainerDOM(messages, title = '对话导出', isDar
       <div style="
         background: ${headerBg};
         padding: 0 16px;
-        height: 44px;
+        height: ${headerHeight};
         display: flex;
         align-items: center;
         border-bottom: 1px solid ${headerBorder};
         position: relative;
       ">
         <!-- 红黄绿三个圆点 -->
-        <div style="display: flex; gap: 8px; align-items: center; z-index: 10;">
-          <div style="width: 12px; height: 12px; border-radius: 50%; background: #ff5f56; border: 0.5px solid rgba(0,0,0,0.1);"></div>
-          <div style="width: 12px; height: 12px; border-radius: 50%; background: #ffbd2e; border: 0.5px solid rgba(0,0,0,0.1);"></div>
-          <div style="width: 12px; height: 12px; border-radius: 50%; background: #27c93f; border: 0.5px solid rgba(0,0,0,0.1);"></div>
+        <div style="display: flex; gap: ${dotGap}; align-items: center; z-index: 10;">
+          <div style="width: ${dotSize}; height: ${dotSize}; border-radius: 50%; background: #ff5f56; border: 0.5px solid rgba(0,0,0,0.1);"></div>
+          <div style="width: ${dotSize}; height: ${dotSize}; border-radius: 50%; background: #ffbd2e; border: 0.5px solid rgba(0,0,0,0.1);"></div>
+          <div style="width: ${dotSize}; height: ${dotSize}; border-radius: 50%; background: #27c93f; border: 0.5px solid rgba(0,0,0,0.1);"></div>
         </div>
 
         <!-- 标题（绝对居中） -->
         <div style="
-            font-size: 13px;
+            font-size: ${titleFontSize};
             font-weight: 600;
             color: ${textColor};
             position: absolute;
@@ -78,14 +91,14 @@ export function prepareMacOSContainerDOM(messages, title = '对话导出', isDar
       </div>
 
       <!-- 消息内容容器 -->
-      <div id="messages-container" style="padding: 24px; background: ${containerBg};"></div>
+      <div id="messages-container" style="padding: ${containerPadding}; background: ${containerBg};"></div>
 
       <!-- 底部信息 -->
       <div style="
-        padding: 12px 24px;
+        padding: ${footerPadding};
         background: ${isDark ? '#252527' : '#fafafa'};
         border-top: 1px solid ${isDark ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.03)'};
-        font-size: 11px;
+        font-size: ${footerFontSize};
         color: ${isDark ? '#666' : '#bbb'};
         text-align: center;
         display: flex;
@@ -165,9 +178,41 @@ export function prepareMacOSContainerDOM(messages, title = '对话导出', isDar
         }
       });
 
-      // 4. Force Width
+      // 4. Force Width & Responsive Adjustments
       clonedMsg.style.width = '100%';
       clonedMsg.style.maxWidth = '100%';
+      clonedMsg.style.padding = isMobile ? '8px 10px' : '24px 20px';
+
+      // 5. Adjust Font Size & spacing for Mobile
+      if (isMobile) {
+          const contentWrapper = clonedMsg.querySelector('.max-w-4xl');
+          if (contentWrapper) {
+              contentWrapper.style.padding = '8px';
+              contentWrapper.style.gap = '6px';
+          }
+          const textContainer = clonedMsg.querySelector('.prose, .markdown-body, [class*="text-"]');
+          if (textContainer) {
+              textContainer.style.fontSize = '12px';
+              textContainer.style.lineHeight = '1.45';
+              // 进一步优化内部间距
+              const paragraphs = textContainer.querySelectorAll('p, li, pre');
+              paragraphs.forEach(p => {
+                  p.style.marginTop = '2px';
+                  p.style.marginBottom = '2px';
+              });
+              const codes = textContainer.querySelectorAll('pre code, .hljs');
+              codes.forEach(c => {
+                  c.style.fontSize = '11px';
+                  c.style.lineHeight = '1.4';
+              });
+          }
+          // Reduce avatar size
+          const avatar = clonedMsg.querySelector('.w-8.h-8, .w-10.h-10');
+          if (avatar) {
+              avatar.style.width = '24px';
+              avatar.style.height = '24px';
+          }
+      }
 
       messagesContainer.appendChild(clonedMsg);
       exportedCount++;
@@ -216,8 +261,9 @@ export function generateMarkdownContent(messages, title = '对话导出', messag
  * 通用渲染函数：将 DOM 渲染为 Canvas
  * 使用 Clone + 离屏渲染技术，避免滚动条和视口限制
  */
-async function renderElementToCanvas(element) {
+async function renderElementToCanvas(element, options = {}) {
     const html2canvas = (await import('html2canvas')).default;
+    const { width = 1000 } = options;
 
     // 1. Clone 元素，避免影响现有视图
     const clone = element.cloneNode(true);
@@ -227,7 +273,7 @@ async function renderElementToCanvas(element) {
         position: 'fixed',
         left: '-10000px',
         top: '0',
-        width: '1000px', // 固定宽度，确保导出清晰度和排版一致
+        width: `${width}px`, // 使用传入的宽度
         height: 'auto',
         zIndex: '-1000',
         overflow: 'visible' // 确保内容不被裁剪
@@ -288,9 +334,9 @@ async function renderElementToCanvas(element) {
 /**
  * 下载 DOM 为图片
  */
-export async function downloadDOMAsImage(element, filename) {
+export async function downloadDOMAsImage(element, filename, options = {}) {
   try {
-    const canvas = await renderElementToCanvas(element);
+    const canvas = await renderElementToCanvas(element, options);
 
     const link = document.createElement('a');
     link.download = filename.endsWith('.png') ? filename : `${filename}.png`;
@@ -307,9 +353,9 @@ export async function downloadDOMAsImage(element, filename) {
 /**
  * 复制 DOM 为图片到剪贴板
  */
-export async function copyDOMAsImage(element) {
+export async function copyDOMAsImage(element, options = {}) {
   try {
-    const canvas = await renderElementToCanvas(element);
+    const canvas = await renderElementToCanvas(element, options);
     return new Promise((resolve) => {
         canvas.toBlob(async (blob) => {
             if (!blob) {
@@ -336,12 +382,12 @@ export async function copyDOMAsImage(element) {
 /**
  * 下载 DOM 为 PDF
  */
-export async function downloadDOMAsPDF(element, filename) {
+export async function downloadDOMAsPDF(element, filename, options = {}) {
   try {
     const { jsPDF } = await import('jspdf');
 
     // 使用通用渲染函数
-    const canvas = await renderElementToCanvas(element);
+    const canvas = await renderElementToCanvas(element, options);
 
     const imgData = canvas.toDataURL('image/png');
     // A4 尺寸 (mm)
