@@ -57,6 +57,12 @@ const renderPreview = () => {
         return;
     }
 
+    // 检查是否有消息数据
+    if (!props.messages || props.messages.length === 0) {
+        console.warn('No messages to render for export preview');
+        return;
+    }
+
     // Image/PDF: 根据当前模式生成或获取 DOM
     const width = deviceModes[selectedDevice.value].renderWidth;
 
@@ -93,8 +99,22 @@ const handleConfirm = () => {
 };
 
 const handleCopy = async () => {
-    if (isCopying.value || !props.content) return;
-    if (props.format === 'image' && !(props.content instanceof HTMLElement)) return;
+    console.log('[ExportPreview] handleCopy called');
+    console.log('[ExportPreview] format:', props.format);
+    console.log('[ExportPreview] renderedDOM.value:', renderedDOM.value);
+
+    // 灵活检查逻辑：Markdown 检查 props.content，图片检查 renderedDOM
+    const hasContent = props.format === 'markdown' ? !!props.content : !!renderedDOM.value;
+    console.log('[ExportPreview] hasContent:', hasContent);
+
+    if (isCopying.value) {
+        console.log('[ExportPreview] Already copying, abort');
+        return;
+    }
+    if (!hasContent) {
+        console.log('[ExportPreview] No content to copy, abort');
+        return;
+    }
 
     isCopying.value = true;
     try {
@@ -106,7 +126,9 @@ const handleCopy = async () => {
             }, 2000);
         } else {
             const width = deviceModes[selectedDevice.value].renderWidth;
+            console.log('[ExportPreview] Calling copyDOMAsImage with width:', width);
             const result = await copyDOMAsImage(renderedDOM.value, { width });
+            console.log('[ExportPreview] copyDOMAsImage result:', result);
             if (result.success) {
                 copySuccess.value = true;
                 setTimeout(() => {
@@ -117,6 +139,7 @@ const handleCopy = async () => {
             }
         }
     } catch (e) {
+        console.error('[ExportPreview] Copy error:', e);
         alert('复制失败: ' + e.message);
     } finally {
         isCopying.value = false;
