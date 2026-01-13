@@ -1,6 +1,10 @@
 <script setup>
 import { ref, watch, computed, onMounted, onUnmounted, nextTick } from 'vue';
-import { Send, X, MessageSquare, MessageSquareOff, GitBranch, Square } from 'lucide-vue-next';
+import { Send, X, MessageSquare, MessageSquareOff, GitBranch, Square, Paperclip } from 'lucide-vue-next';
+import {
+    parseFile, getAcceptedFileTypes, isFileSupported,
+    formatFileContentForAI, getFileIcon, formatFileSize
+} from '../utils/fileParser.js';
 
 const props = defineProps({
     isStreaming: Boolean,
@@ -17,7 +21,17 @@ const emit = defineEmits(['send', 'stop', 'update:contextEnabled', 'update:diagr
 const input = ref('');
 const images = ref([]);
 const textareaRef = ref(null);
+const fileInputRef = ref(null);
 const MAX_IMAGES = 3;
+const MAX_FILES = 5;
+
+// 上传的文件列表
+const uploadedFiles = ref([]);
+// 解析后的文件内容
+const parsedFileContents = ref([]);
+// 文件上传状态
+const isParsingFiles = ref(false);
+const fileParseError = ref('');
 
 const displayName = computed(() => {
     // 从模型名称中提取品牌名
@@ -47,23 +61,32 @@ const handleSend = () => {
         }
         return;
     }
-    if ((!input.value.trim() && images.value.length === 0) || props.isSelectionMode) return;
-    emit('send', input.value, [...images.value]);
+    if ((!input.value.trim() && images.value.length === 0 && parsedFileContents.value.length === 0) || props.isSelectionMode) return;
+
+    // 构建包含文件内容的消息
+    let finalContent = input.value;
+    if (parsedFileContents.value.length > 0) {
+        finalContent += formatFileContentForAI(parsedFileContents.value);
+    }
+
+    emit('send', finalContent, [...images.value]);
+
+    // 重置所有状态
     input.value = '';
     images.value = [];
+    uploadedFiles.value = [];
+    parsedFileContents.value = [];
+
     if (textareaRef.value) {
         textareaRef.value.style.height = 'auto';
     }
 };
 
-// 处理键盘事件 - 支持 Ctrl+Enter 换行
+// 处理键盘事件 - 支持 Shift+Enter 换行
 const handleKeyDown = (event) => {
     if (event.key === 'Enter') {
         if (event.shiftKey) {
             // Shift+Enter: 插入换行符
-            // 注意：某些输入法可能会触发 Enter，需要确保 shiftKey 状态正确
-            // 但在这里我们坚持如果不阻止默认行为，浏览器也会换行。
-            // 使用 preventDefault + 手动插入是为了保证行为一致性和光标控制（以及 adjustHeight）
             event.preventDefault();
             const textarea = event.target;
             const start = textarea.selectionStart;
@@ -86,10 +109,58 @@ const handleKeyDown = (event) => {
     }
 };
 
-// 处理粘贴事件
+// 处理文件（解析并添加到列表）
+const processFiles = async (files) => {
+    if (files.length === 0) return;
+
+    // 检查文件数量限制
+    const totalFiles = uploadedFiles.value.length + files.length;
+    if (totalFiles > MAX_FILES) {
+        fileParseError.value = `最多只能上传 ${MAX_FILES} 个文件`;
+        setTimeout(() => { fileParseError.value = ''; }, 3000);
+        return;
+    }
+
+    isParsingFiles.value = true;
+    fileParseError.value = '';
+
+    for (const file of files) {
+        // 检查文件是否支持
+        if (!isFileSupported(file)) {
+            fileParseError.value = `不支持的文件类型: ${file.name}`;
+            setTimeout(() => { fileParseError.value = ''; }, 3000);
+            continue;
+        }
+
+        try {
+            // 解析文件
+            const parsed = await parseFile(file);
+
+            // 添加到列表
+            uploadedFiles.value.push({
+                name: file.name,
+                size: file.size,
+                icon: getFileIcon(file.name),
+                type: parsed.type
+            });
+
+            parsedFileContents.value.push(parsed);
+        } catch (error) {
+            console.error('文件解析错误:', error);
+            fileParseError.value = error.message;
+            setTimeout(() => { fileParseError.value = ''; }, 3000);
+        }
+    }
+
+    isParsingFiles.value = false;
+};
+
+// 处理粘贴事件 - 支持图片和文件
 const handlePaste = async (e) => {
     const items = e.clipboardData?.items;
     if (!items) return;
+
+    const filesToProcess = [];
 
     // 遍历剪贴板项
     for (let i = 0; i < items.length; i++) {
@@ -117,7 +188,44 @@ const handlePaste = async (e) => {
                 reader.readAsDataURL(file);
             }
         }
+        // 检查是否是文件（非图片）
+        else if (item.kind === 'file') {
+            const file = item.getAsFile();
+            if (file && isFileSupported(file)) {
+                e.preventDefault();
+                filesToProcess.push(file);
+            }
+        }
     }
+
+    // 处理粘贴的文件
+    if (filesToProcess.length > 0) {
+        await processFiles(filesToProcess);
+    }
+};
+
+// 触发文件选择
+const triggerFileUpload = () => {
+    if (fileInputRef.value) {
+        fileInputRef.value.click();
+    }
+};
+
+// 处理文件选择
+const handleFileSelect = async (event) => {
+    const files = Array.from(event.target.files || []);
+    await processFiles(files);
+
+    // 清空 input 以便可以重复选择相同文件
+    if (fileInputRef.value) {
+        fileInputRef.value.value = '';
+    }
+};
+
+// 移除上传的文件
+const removeFile = (index) => {
+    uploadedFiles.value.splice(index, 1);
+    parsedFileContents.value.splice(index, 1);
 };
 
 const removeImage = (index) => {
@@ -145,6 +253,7 @@ onUnmounted(() => {
     }
 });
 
+// 监听输入变化
 watch(input, () => {
     nextTick(adjustHeight);
 });
@@ -224,6 +333,39 @@ defineExpose({
             <!-- Main Input Container -->
             <div class="relative flex flex-col w-full bg-white dark:bg-chatgpt-dark-input border-2 border-chatgpt-border dark:border-chatgpt-dark-border rounded-3xl shadow-elevated dark:shadow-dark-elevated transition-all duration-300 focus-within:border-chatgpt-accent dark:focus-within:border-chatgpt-dark-accent focus-within:shadow-xl dark:focus-within:shadow-dark-elevated">
 
+                <!-- File Previews Above Input -->
+                <div v-if="uploadedFiles.length > 0" class="flex flex-wrap gap-2 p-3 border-b border-chatgpt-border/40 dark:border-chatgpt-dark-border/40">
+                    <div
+                        v-for="(file, idx) in uploadedFiles"
+                        :key="'file-' + idx"
+                        class="relative group flex items-center gap-2 px-3 py-2 bg-gray-50 dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700"
+                    >
+                        <span class="text-lg">{{ file.icon }}</span>
+                        <div class="flex flex-col">
+                            <span class="text-xs font-medium text-gray-700 dark:text-gray-300 max-w-32 truncate">{{ file.name }}</span>
+                            <span class="text-[10px] text-gray-400 dark:text-gray-500">{{ formatFileSize(file.size) }}</span>
+                        </div>
+                        <button
+                            @click="removeFile(idx)"
+                            class="ml-1 p-1 bg-gray-200 dark:bg-gray-700 hover:bg-red-500 dark:hover:bg-red-600 text-gray-500 hover:text-white rounded-full transition-all duration-200"
+                            aria-label="删除文件"
+                        >
+                            <X :size="12" />
+                        </button>
+                    </div>
+
+                    <!-- 解析中状态 -->
+                    <div v-if="isParsingFiles" class="flex items-center gap-2 px-3 py-2 text-xs text-blue-600 dark:text-blue-400">
+                        <div class="w-4 h-4 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+                        解析中...
+                    </div>
+                </div>
+
+                <!-- File Parse Error -->
+                <div v-if="fileParseError" class="px-4 py-2 text-xs text-red-500 dark:text-red-400 bg-red-50 dark:bg-red-900/20 border-b border-red-200 dark:border-red-800">
+                    ⚠️ {{ fileParseError }}
+                </div>
+
                 <!-- Image Previews Above Input -->
                 <div v-if="images.length > 0" class="flex flex-wrap gap-3 p-4 border-b border-chatgpt-border/40 dark:border-chatgpt-dark-border/40">
                     <div v-for="(img, idx) in images" :key="idx" class="relative group">
@@ -242,12 +384,33 @@ defineExpose({
                 </div>
 
                 <!-- Input Row -->
-                <div class="flex items-end gap-2 p-2 px-4 md:px-5">
+                <div class="flex items-center gap-2 p-2 px-4 md:px-5">
+                    <!-- File Upload Button -->
+                    <button
+                        @click="triggerFileUpload"
+                        :disabled="isStreaming || isSelectionMode || uploadedFiles.length >= MAX_FILES"
+                        class="p-2.5 rounded-xl transition-all duration-200 hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                        :title="uploadedFiles.length >= MAX_FILES ? `最多上传 ${MAX_FILES} 个文件` : '上传文件 (PDF、Excel、TXT、MD等)'"
+                    >
+                        <Paperclip :size="20" />
+                    </button>
+
+                    <!-- Hidden File Input -->
+                    <input
+                        ref="fileInputRef"
+                        type="file"
+                        :accept="getAcceptedFileTypes()"
+                        multiple
+                        class="hidden"
+                        @change="handleFileSelect"
+                    />
+
+                    <!-- Textarea -->
                     <textarea
                         ref="textareaRef"
                         v-model="input"
                         rows="1"
-                        :placeholder="images.length > 0 ? `描述图片内容或提问...` : `给 ${displayName} 发消息... (Shift+Enter 换行)`"
+                        :placeholder="uploadedFiles.length > 0 ? '描述文件内容或提问...' : (images.length > 0 ? '描述图片内容或提问...' : `给 ${displayName} 发消息... (Shift+Enter 换行)`)"
                         @keydown="handleKeyDown"
                         class="flex-1 resize-none border-0 bg-transparent p-3 md:p-3.5 focus:ring-0 focus:outline-none text-chatgpt-text dark:text-chatgpt-dark-text placeholder-gray-400 dark:placeholder-gray-500 text-[15px] max-h-48 custom-scrollbar leading-relaxed"
                         :disabled="isStreaming || isSelectionMode"
@@ -255,14 +418,14 @@ defineExpose({
 
                     <button
                         @click="handleSend"
-                        :disabled="isStreaming ? !canStop : ((!input.trim() && images.length === 0) || isSelectionMode)"
-                        class="mb-1.5 p-2.5 rounded-xl transition-all duration-200 shadow-card dark:shadow-dark-card"
+                        :disabled="isStreaming ? !canStop : ((!input.trim() && images.length === 0 && parsedFileContents.length === 0) || isSelectionMode)"
+                        class="p-2.5 rounded-xl transition-all duration-200 shadow-card dark:shadow-dark-card"
                         :class="[
                             isStreaming
                                 ? (canStop
                                     ? 'bg-red-500 hover:bg-red-600 text-white hover:shadow-elevated hover:scale-105 cursor-pointer'
                                     : 'bg-gray-100 dark:bg-gray-700 text-gray-300 dark:text-gray-500 cursor-not-allowed')
-                                : (input.trim() || images.length > 0
+                                : (input.trim() || images.length > 0 || parsedFileContents.length > 0
                                     ? 'bg-chatgpt-accent dark:bg-chatgpt-dark-accent hover:bg-blue-600 dark:hover:bg-blue-500 text-white hover:shadow-elevated dark:hover:shadow-dark-elevated hover:scale-105'
                                     : 'bg-gray-100 dark:bg-gray-700 text-gray-300 dark:text-gray-500 cursor-not-allowed')
                         ]"
@@ -274,7 +437,7 @@ defineExpose({
             </div>
 
             <p class="text-xs text-center text-chatgpt-subtext dark:text-chatgpt-dark-subtext mt-1 px-4">
-                {{ displayName }} 可能会出错。请核对重要信息。支持粘贴图片 (Ctrl+V) · Shift+Enter 换行
+                {{ displayName }} 可能会出错。请核对重要信息。支持粘贴图片/文件 (Ctrl+V) · Shift+Enter 换行
             </p>
         </div>
     </div>

@@ -19,10 +19,13 @@
     "highlight.js": "^11.11.1",
     "html2canvas": "^1.4.1",
     "jspdf": "^2.5.2",
+    "jszip": "^3.10.1",
     "lucide-vue-next": "^0.562.0",
     "markdown-it": "^14.1.0",
     "mermaid": "^11.12.2",
-    "vue": "^3.5.26"
+    "pdfjs-dist": "^5.4.530",
+    "vue": "^3.5.26",
+    "xlsx": "^0.18.5"
   },
   "devDependencies": {
     "@vitejs/plugin-vue": "^6.0.3",

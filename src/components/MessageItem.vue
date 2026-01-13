@@ -3,7 +3,7 @@ import { computed, ref, onMounted, nextTick, watch, onUnmounted } from 'vue';
 import MarkdownIt from 'markdown-it';
 import mermaid from 'mermaid';
 import hljs from 'highlight.js';
-import { User, Bot, Copy, ThumbsUp, ThumbsDown, Check, X, RefreshCw, Edit3 } from 'lucide-vue-next';
+import { User, Bot, Copy, ThumbsUp, ThumbsDown, Check, X, RefreshCw, Edit3, ChevronDown, ChevronUp, FileText } from 'lucide-vue-next';
 
 const props = defineProps({
     message: Object,
@@ -84,9 +84,71 @@ const allImages = computed(() => {
     return [...messageImages, ...extractedImages.value];
 });
 
-// 从content中移除base64图片数据，避免显示为文本
+// 提取附件内容
+const attachments = computed(() => {
+    const content = props.message.content || '';
+    const attachmentRegex = /<!--ATTACHMENT_START-->\n<!--ATTACHMENT_META:({.*?})-->\n([\s\S]*?)<!--ATTACHMENT_END-->/g;
+    const results = [];
+    let match;
+
+    while ((match = attachmentRegex.exec(content)) !== null) {
+        try {
+            const meta = JSON.parse(match[1]);
+            const attachmentContent = match[2].trim();
+            results.push({
+                ...meta,
+                content: attachmentContent,
+                expanded: false
+            });
+        } catch (e) {
+            console.error('解析附件元数据失败:', e);
+        }
+    }
+
+    return results;
+});
+
+// 附件展开状态
+const attachmentExpandState = ref({});
+
+const toggleAttachment = (index) => {
+    attachmentExpandState.value[index] = !attachmentExpandState.value[index];
+};
+
+const isAttachmentExpanded = (index) => {
+    return !!attachmentExpandState.value[index];
+};
+
+// 获取附件类型描述
+const getAttachmentTypeDesc = (attachment) => {
+    if (attachment.type === 'pdf') {
+        return `PDF 文档, ${attachment.pages} 页`;
+    } else if (attachment.type === 'pptx') {
+        return `PPT 演示文稿, ${attachment.slides} 页`;
+    } else if (attachment.type === 'docx') {
+        return `Word 文档`;
+    } else if (attachment.type === 'excel') {
+        return `Excel 表格, ${attachment.sheets} 个工作表`;
+    } else if (attachment.type === 'code') {
+        return `${attachment.extension?.toUpperCase() || ''} 代码文件`;
+    } else {
+        return `文本文件`;
+    }
+};
+
+// 获取附件预览内容（默认显示前200字符）
+const getAttachmentPreview = (content, maxLength = 200) => {
+    if (!content) return '';
+    if (content.length <= maxLength) return content;
+    return content.substring(0, maxLength) + '...';
+};
+
+// 从content中移除base64图片数据和附件标记，避免显示为文本
 const cleanedContent = computed(() => {
     let content = props.message.content || '';
+
+    // 移除附件标记内容
+    content = content.replace(/<!--ATTACHMENT_START-->[\s\S]*?<!--ATTACHMENT_END-->/g, '');
 
     // 移除base64图片数据（包括可能的换行和空格）
     const base64Regex = /data:image\/[a-zA-Z]+;base64,[A-Za-z0-9+/=\s]+/g;
@@ -683,6 +745,46 @@ const handleMessageClick = (event) => {
                     v-html="renderedContent"
                 ></div>
 
+                <!-- Attachment Cards -->
+                <div v-if="attachments.length > 0" class="mt-3 space-y-2">
+                    <div
+                        v-for="(attachment, idx) in attachments"
+                        :key="'attachment-' + idx"
+                        class="attachment-card bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 rounded-xl overflow-hidden"
+                    >
+                        <!-- Attachment Header -->
+                        <div
+                            @click="toggleAttachment(idx)"
+                            class="flex items-center gap-3 px-4 py-3 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700/50 transition-colors"
+                        >
+                            <div class="w-10 h-10 rounded-lg bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center shrink-0">
+                                <FileText :size="20" class="text-white" />
+                            </div>
+                            <div class="flex-1 min-w-0">
+                                <div class="text-sm font-medium text-chatgpt-text dark:text-chatgpt-dark-text truncate">
+                                    {{ attachment.name }}
+                                </div>
+                                <div class="text-xs text-chatgpt-subtext dark:text-chatgpt-dark-subtext">
+                                    {{ getAttachmentTypeDesc(attachment) }} · 点击{{ isAttachmentExpanded(idx) ? '收起' : '展开' }}内容
+                                </div>
+                            </div>
+                            <button class="p-1.5 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors">
+                                <ChevronUp v-if="isAttachmentExpanded(idx)" :size="18" class="text-chatgpt-subtext dark:text-chatgpt-dark-subtext" />
+                                <ChevronDown v-else :size="18" class="text-chatgpt-subtext dark:text-chatgpt-dark-subtext" />
+                            </button>
+                        </div>
+
+                        <!-- Attachment Full Content (expanded) -->
+                        <Transition name="slide">
+                            <div v-if="isAttachmentExpanded(idx)" class="px-4 pb-3">
+                                <div class="text-xs text-chatgpt-text dark:text-chatgpt-dark-text bg-gray-100 dark:bg-gray-900/50 rounded-lg p-3 font-mono whitespace-pre-wrap overflow-auto max-h-96">
+                                    {{ attachment.content }}
+                                </div>
+                            </div>
+                        </Transition>
+                    </div>
+                </div>
+
                 <!-- Streaming Cursor is now handled by CSS ::after on .is-streaming elements -->
 
                 <!-- Actions for AI messages (visible on hover) -->
@@ -956,5 +1058,37 @@ const handleMessageClick = (event) => {
 .dark .is-streaming > h6:last-child::after {
     background-color: var(--chatgpt-dark-accent, #3B82F6);
     box-shadow: 0 0 8px rgba(16, 163, 127, 0.6);
+}
+
+/* Attachment card slide transition */
+.slide-enter-active,
+.slide-leave-active {
+    transition: all 0.3s ease;
+    overflow: hidden;
+}
+
+.slide-enter-from,
+.slide-leave-to {
+    opacity: 0;
+    max-height: 0;
+}
+
+.slide-enter-to,
+.slide-leave-from {
+    opacity: 1;
+    max-height: 500px;
+}
+
+/* Attachment card styling */
+.attachment-card {
+    transition: all 0.2s ease;
+}
+
+.attachment-card:hover {
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.dark .attachment-card:hover {
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
 }
 </style>
