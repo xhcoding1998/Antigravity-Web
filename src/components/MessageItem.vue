@@ -3,7 +3,8 @@ import { computed, ref, onMounted, nextTick, watch, onUnmounted } from 'vue';
 import MarkdownIt from 'markdown-it';
 import mermaid from 'mermaid';
 import hljs from 'highlight.js';
-import { User, Bot, Copy, ThumbsUp, ThumbsDown, Check, X, RefreshCw, Edit3, ChevronDown, ChevronUp, FileText } from 'lucide-vue-next';
+import { User, Bot, Copy, ThumbsUp, ThumbsDown, Check, X, RefreshCw, Edit3, ChevronDown, ChevronUp, FileText, Download } from 'lucide-vue-next';
+import html2canvas from 'html2canvas';
 
 const props = defineProps({
     message: Object,
@@ -348,6 +349,136 @@ const renderMermaidDiagrams = async () => {
             }
         });
     }
+
+    // 渲染表格增强功能
+    renderTables();
+};
+
+// 渲染表格增强功能（调整宽度、导出图片）
+const renderTables = async () => {
+    if (!contentRef.value) return;
+
+    await nextTick();
+
+    const tables = contentRef.value.querySelectorAll('table');
+
+    tables.forEach((table, index) => {
+        // 如果已经处理过，跳过
+        if (table.dataset.tableEnhanced === 'true') return;
+        table.dataset.tableEnhanced = 'true';
+
+        // 1. 包裹容器
+        const wrapper = document.createElement('div');
+        wrapper.className = 'table-wrapper group/table';
+
+        // 2. 创建头部工具栏（导出按钮）
+        const toolbar = document.createElement('div');
+        toolbar.className = 'table-toolbar opacity-0 group-hover/table:opacity-100 transition-opacity';
+
+        const exportBtn = document.createElement('button');
+        exportBtn.className = 'table-export-btn';
+        exportBtn.title = '导出为图片';
+        exportBtn.innerHTML = `
+            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                <polyline points="7 10 12 15 17 10"></polyline>
+                <line x1="12" y1="15" x2="12" y2="3"></line>
+            </svg>
+            <span>导出图片</span>
+        `;
+
+        exportBtn.addEventListener('click', async () => {
+            try {
+                // 暂时移除 toolbar 避免出现在截图中
+                toolbar.style.display = 'none';
+
+                // 为了导出美观，临时给 wrapper 增加 inner padding 和圆角背景
+                // 模拟消息列表中的卡片效果
+                const originalPadding = wrapper.style.padding;
+                const originalBackground = wrapper.style.background;
+                const originalBoxShadow = wrapper.style.boxShadow;
+
+                wrapper.style.padding = '32px';
+                wrapper.style.borderRadius = '24px';
+
+                const isDark = document.documentElement.classList.contains('dark');
+                // 使用 tailwind config 中的颜色: assistant 背景
+                const bgColor = isDark ? '#3E3F4B' : '#F9FAFB';
+                wrapper.style.background = bgColor;
+                wrapper.style.boxShadow = isDark ? '0 20px 50px rgba(0,0,0,0.5)' : '0 20px 50px rgba(0,0,0,0.1)';
+
+                const canvas = await html2canvas(wrapper, {
+                    backgroundColor: bgColor,
+                    scale: 3, // 提高清晰度 (3x)
+                    logging: false,
+                    useCORS: true,
+                    borderRadius: 24,
+                    onclone: (clonedDoc) => {
+                        // 在克隆中隐藏工具栏（双重保险）
+                        const clonedToolbar = clonedDoc.querySelector('.table-toolbar');
+                        if (clonedToolbar) clonedToolbar.style.display = 'none';
+                    }
+                });
+
+                // 恢复样式
+                wrapper.style.padding = originalPadding;
+                wrapper.style.background = originalBackground;
+                wrapper.style.boxShadow = originalBoxShadow;
+                toolbar.style.display = 'flex';
+
+                const url = canvas.toDataURL('image/png');
+                const link = document.createElement('a');
+                link.href = url;
+                link.download = `table-${Date.now()}.png`;
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+            } catch (err) {
+                console.error('导出表格图片失败:', err);
+                toolbar.style.display = 'flex';
+            }
+        });
+
+        toolbar.appendChild(exportBtn);
+
+        // 将表格包裹起来
+        table.parentNode.insertBefore(wrapper, table);
+        wrapper.appendChild(toolbar);
+        wrapper.appendChild(table);
+
+        // 3. 添加列宽调整逻辑
+        const headers = table.querySelectorAll('th');
+        headers.forEach((th) => {
+            th.style.position = 'relative';
+
+            const resizer = document.createElement('div');
+            resizer.className = 'table-resizer';
+            th.appendChild(resizer);
+
+            let startX, startWidth;
+
+            const onMouseMove = (e) => {
+                const width = startWidth + (e.pageX - startX);
+                th.style.width = `${width}px`;
+                th.style.minWidth = `${width}px`;
+            };
+
+            const onMouseUp = () => {
+                document.removeEventListener('mousemove', onMouseMove);
+                document.removeEventListener('mouseup', onMouseUp);
+                resizer.classList.remove('resizing');
+            };
+
+            resizer.addEventListener('mousedown', (e) => {
+                startX = e.pageX;
+                startWidth = th.offsetWidth;
+                document.addEventListener('mousemove', onMouseMove);
+                document.addEventListener('mouseup', onMouseUp);
+                resizer.classList.add('resizing');
+                e.preventDefault();
+            });
+        });
+    });
 };
 
 // 处理图表右键菜单
@@ -450,6 +581,7 @@ watch([() => props.message.content, () => props.message.streaming], async () => 
     if (!props.message.streaming) {
         await nextTick();
         renderMermaidDiagrams();
+        renderTables();
     }
 }, { immediate: false });
 
@@ -459,6 +591,7 @@ let errorObserver = null;
 // 首次渲染
 onMounted(() => {
     renderMermaidDiagrams();
+    renderTables();
     // 添加全局点击事件监听器,关闭右键菜单
     document.addEventListener('click', closeContextMenu);
 
@@ -974,6 +1107,75 @@ const handleMessageClick = (event) => {
 
 .prose h3 {
     @apply text-lg;
+}
+
+/* Table Styles Enhancement */
+.table-wrapper {
+    @apply my-6 relative overflow-x-auto rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm transition-all duration-200;
+    background-color: white;
+}
+
+.dark .table-wrapper {
+    background-color: #2D2D35; /* 稍深于 assistant 背景，突出表格区域 */
+}
+
+.table-wrapper:hover {
+    @apply border-blue-400/30 dark:border-blue-500/30 shadow-md;
+}
+
+.prose table {
+    @apply w-full border-collapse text-sm m-0 !important;
+    table-layout: auto;
+}
+
+.prose thead {
+    @apply bg-gray-50 dark:bg-gray-800/80 border-b border-gray-200 dark:border-gray-700;
+}
+
+.prose th {
+    @apply px-5 py-3.5 text-left font-bold text-gray-900 dark:text-gray-100 whitespace-nowrap !important;
+}
+
+.prose td {
+    @apply px-5 py-3 border-b border-gray-100 dark:border-gray-800/50 text-gray-700 dark:text-gray-300 !important;
+}
+
+.prose tr:last-child td {
+    @apply border-b-0;
+}
+
+.prose tr:nth-child(even) {
+    background-color: rgba(0, 0, 0, 0.02);
+}
+
+.dark .prose tr:nth-child(even) {
+    background-color: rgba(255, 255, 255, 0.02);
+}
+
+.prose tr:hover td {
+    @apply bg-blue-50/50 dark:bg-blue-900/20;
+}
+
+/* Table Resizer */
+.table-resizer {
+    @apply absolute top-0 right-0 w-1 h-full cursor-col-resize hover:bg-blue-500/50 transition-colors z-10;
+}
+
+.table-resizer.resizing {
+    @apply bg-blue-500 w-0.5;
+}
+
+/* Table Toolbar */
+.table-toolbar {
+    @apply absolute top-2 right-2 flex gap-2 z-20;
+}
+
+.table-export-btn {
+    @apply flex items-center gap-1.5 px-2 py-1 bg-white/90 dark:bg-gray-900/90 border border-gray-200 dark:border-gray-700 rounded-lg text-[11px] font-medium text-gray-600 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 hover:border-blue-200 dark:hover:border-blue-800 shadow-sm transition-all;
+}
+
+.table-export-btn svg {
+    @apply opacity-70;
 }
 
 /* Fade transition for image preview */
