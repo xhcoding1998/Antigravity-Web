@@ -42,8 +42,9 @@ export function prepareMacOSContainerDOM(messages, title = '对话导出', isDar
 
   // 移动端优化参数
   const containerPadding = isMobile ? '8px' : '24px';
-  const headerHeight = isMobile ? '32px' : '44px';
+  const headerHeight = isMobile ? '38px' : '44px';
   const titleFontSize = isMobile ? '12px' : '13px';
+  const headerPadding = isMobile ? '12px' : '16px';
   const dotSize = isMobile ? '10px' : '12px';
   const dotGap = isMobile ? '6px' : '8px';
   const footerPadding = isMobile ? '8px 12px' : '12px 24px';
@@ -61,7 +62,7 @@ export function prepareMacOSContainerDOM(messages, title = '对话导出', isDar
       <!-- macOS 窗口头部 -->
       <div style="
         background: ${headerBg};
-        padding: 0 16px;
+        padding: 0 ${headerPadding};
         height: ${headerHeight};
         display: flex;
         align-items: center;
@@ -85,6 +86,10 @@ export function prepareMacOSContainerDOM(messages, title = '对话导出', isDar
             top: 50%;
             transform: translate(-50%, -50%);
             white-space: nowrap;
+            max-width: ${isMobile ? '60%' : '80%'};
+            overflow: hidden;
+            text-overflow: ellipsis;
+            text-align: center;
         ">
             ${escapeHtml(title)}
         </div>
