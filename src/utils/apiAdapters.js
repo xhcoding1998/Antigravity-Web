@@ -41,10 +41,24 @@ class OpenAIAdapter extends BaseApiAdapter {
   formatRequest(messages, model, config = {}) {
     return {
       model,
-      messages: messages.map(msg => ({
-        role: msg.role,
-        content: msg.content
-      })),
+      messages: messages.map(msg => {
+        // 如果消息包含图片，使用 OpenAI Vision 格式
+        if (msg.images && msg.images.length > 0) {
+          const contentArr = [{ type: 'text', text: msg.content || '' }];
+          msg.images.forEach(img => {
+            contentArr.push({
+              type: 'image_url',
+              image_url: { url: img }
+            });
+          });
+          return { role: msg.role, content: contentArr };
+        }
+        // 普通文本消息
+        return {
+          role: msg.role,
+          content: msg.content
+        };
+      }),
       stream: config.stream !== false,
       ...config
     };

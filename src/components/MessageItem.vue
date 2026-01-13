@@ -131,6 +131,8 @@ const getAttachmentTypeDesc = (attachment) => {
         return `Excel 表格, ${attachment.sheets} 个工作表`;
     } else if (attachment.type === 'code') {
         return `${attachment.extension?.toUpperCase() || ''} 代码文件`;
+    } else if (attachment.type === 'ocr') {
+        return `OCR 识别结果, 置信度 ${attachment.confidence}%`;
     } else {
         return `文本文件`;
     }

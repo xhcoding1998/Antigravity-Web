@@ -811,10 +811,22 @@ export function useChat() {
             // 流式结束，更新状态
             const lastIndex = messages.value.length - 1;
             if (lastIndex >= 0) {
-                messages.value[lastIndex] = {
-                    ...messages.value[lastIndex],
-                    streaming: false
-                };
+                const assistantContent = messages.value[lastIndex].content || '';
+
+                // 检查是否收到空响应
+                if (!hasContent || assistantContent.trim() === '') {
+                    messages.value[lastIndex] = {
+                        ...messages.value[lastIndex],
+                        content: '> ⚠️ **AI 返回了空响应**\n> \n> 可能的原因：\n> - 输入内容被安全策略拦截\n> - 模型无法理解或处理该请求\n> - API 配额已用尽或服务暂时不可用\n> \n> 请尝试修改输入内容或切换模型后重试。',
+                        streaming: false,
+                        error: true
+                    };
+                } else {
+                    messages.value[lastIndex] = {
+                        ...messages.value[lastIndex],
+                        streaming: false
+                    };
+                }
             }
 
             if (chatIndex !== -1) {

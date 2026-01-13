@@ -1,10 +1,11 @@
 <script setup>
 import { ref, watch, computed, onMounted, onUnmounted, nextTick } from 'vue';
-import { Send, X, MessageSquare, MessageSquareOff, GitBranch, Square, Paperclip } from 'lucide-vue-next';
+import { Send, X, MessageSquare, MessageSquareOff, GitBranch, Square, Paperclip, Loader2, ScanEye } from 'lucide-vue-next';
 import {
     parseFile, getAcceptedFileTypes, isFileSupported,
     formatFileContentForAI, getFileIcon, formatFileSize
 } from '../utils/fileParser.js';
+import { extractTextFromImage, formatOcrResultsForAI } from '../utils/imageOcr.js';
 
 const props = defineProps({
     isStreaming: Boolean,
@@ -33,6 +34,55 @@ const parsedFileContents = ref([]);
 const isParsingFiles = ref(false);
 const fileParseError = ref('');
 
+// OCR 相关状态
+const ocrEnabled = ref(true); // OCR 开关
+const ocrResults = ref([]); // 存储每张图片的 OCR 结果
+const ocrProcessingStates = ref([]); // 每张图片的 OCR 处理状态
+
+// 切换 OCR 开关
+const toggleOcr = () => {
+    ocrEnabled.value = !ocrEnabled.value;
+
+    // 如果开启 OCR 且有图片还没处理，立即处理
+    if (ocrEnabled.value) {
+        images.value.forEach((img, idx) => {
+            if (!ocrResults.value[idx] && !ocrProcessingStates.value[idx]) {
+                processImageOcr(img, idx);
+            }
+        });
+    }
+};
+
+// 处理单张图片的 OCR
+const processImageOcr = async (imageData, index) => {
+    if (!ocrEnabled.value || props.isDrawingModel) return;
+
+    ocrProcessingStates.value[index] = true;
+
+    try {
+        const result = await extractTextFromImage(imageData);
+        ocrResults.value[index] = {
+            index: index + 1,
+            ...result
+        };
+    } catch (error) {
+        console.error(`图片 ${index + 1} OCR 失败:`, error);
+        ocrResults.value[index] = {
+            index: index + 1,
+            text: '',
+            confidence: 0,
+            error: error.message
+        };
+    } finally {
+        ocrProcessingStates.value[index] = false;
+    }
+};
+
+// 检查是否有正在处理的 OCR
+const isAnyOcrProcessing = computed(() => {
+    return ocrProcessingStates.value.some(state => state === true);
+});
+
 const displayName = computed(() => {
     // 从模型名称中提取品牌名
     const name = props.modelName || 'ChatGPT';
@@ -54,7 +104,7 @@ const toggleDiagram = () => {
     emit('update:diagramEnabled', !props.diagramEnabled);
 };
 
-const handleSend = () => {
+const handleSend = async () => {
     if (props.isStreaming) {
         if (props.canStop) {
             emit('stop');
@@ -65,8 +115,21 @@ const handleSend = () => {
 
     // 构建包含文件内容的消息
     let finalContent = input.value;
+
+    // 添加文件内容
     if (parsedFileContents.value.length > 0) {
         finalContent += formatFileContentForAI(parsedFileContents.value);
+    }
+
+    // 如果开启了 OCR 且有 OCR 结果，添加到消息中
+    if (ocrEnabled.value && ocrResults.value.length > 0 && !props.isDrawingModel) {
+        const validOcrResults = ocrResults.value.filter(r => r && r.text && r.text.trim());
+        if (validOcrResults.length > 0) {
+            const ocrText = formatOcrResultsForAI(validOcrResults);
+            if (ocrText) {
+                finalContent += ocrText;
+            }
+        }
     }
 
     emit('send', finalContent, [...images.value]);
@@ -76,6 +139,8 @@ const handleSend = () => {
     images.value = [];
     uploadedFiles.value = [];
     parsedFileContents.value = [];
+    ocrResults.value = [];
+    ocrProcessingStates.value = [];
 
     if (textareaRef.value) {
         textareaRef.value.style.height = 'auto';
@@ -182,7 +247,14 @@ const handlePaste = async (e) => {
                 const reader = new FileReader();
                 reader.onload = (event) => {
                     if (images.value.length < MAX_IMAGES) {
-                        images.value.push(event.target.result);
+                        const imageData = event.target.result;
+                        const newIndex = images.value.length;
+                        images.value.push(imageData);
+
+                        // 如果开启了 OCR 且不是绘图模型，立即处理
+                        if (ocrEnabled.value && !props.isDrawingModel) {
+                            processImageOcr(imageData, newIndex);
+                        }
                     }
                 };
                 reader.readAsDataURL(file);
@@ -230,6 +302,13 @@ const removeFile = (index) => {
 
 const removeImage = (index) => {
     images.value.splice(index, 1);
+    ocrResults.value.splice(index, 1);
+    ocrProcessingStates.value.splice(index, 1);
+
+    // 重新索引剩余的 OCR 结果
+    ocrResults.value.forEach((result, idx) => {
+        if (result) result.index = idx + 1;
+    });
 };
 
 const adjustHeight = () => {
@@ -322,11 +401,27 @@ defineExpose({
                     :title="diagramEnabled ? '点击关闭图表渲染' : '点击开启图表渲染'"
                 >
                     <GitBranch :size="14" />
-                    <span>{{ diagramEnabled ? '图表渲染' : '图表渲染' }}</span>
+                    <span>图表渲染</span>
+                </button>
+
+                <!-- OCR Toggle Button (only shown when not drawing model) -->
+                <button
+                    v-if="!isDrawingModel"
+                    @click="toggleOcr"
+                    :class="[
+                        'flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium transition-all duration-200',
+                        ocrEnabled
+                            ? 'bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-400 hover:bg-purple-200 dark:hover:bg-purple-900/40'
+                            : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600'
+                    ]"
+                    :title="ocrEnabled ? '点击关闭图片文字识别' : '点击开启图片文字识别'"
+                >
+                    <ScanEye :size="14" />
+                    <span>图片OCR</span>
                 </button>
 
                 <div class="flex-1 text-xs text-chatgpt-subtext dark:text-chatgpt-dark-subtext text-right">
-                    {{ diagramEnabled ? '代码块中的流程图将被渲染' : '仅显示代码文本' }}
+                    {{ ocrEnabled && images.length > 0 ? (isAnyOcrProcessing ? '正在识别图片文字...' : 'OCR 已就绪') : (diagramEnabled ? '代码块中的流程图将被渲染' : '仅显示代码文本') }}
                 </div>
             </div>
 
@@ -370,6 +465,21 @@ defineExpose({
                 <div v-if="images.length > 0" class="flex flex-wrap gap-3 p-4 border-b border-chatgpt-border/40 dark:border-chatgpt-dark-border/40">
                     <div v-for="(img, idx) in images" :key="idx" class="relative group">
                         <img :src="img" class="w-24 h-24 object-contain rounded-2xl border-2 border-chatgpt-border dark:border-chatgpt-dark-border shadow-card dark:shadow-dark-card bg-gray-50 dark:bg-gray-800" />
+                        <!-- OCR 状态指示器 -->
+                        <div v-if="ocrEnabled && !isDrawingModel"
+                            :class="[
+                                'absolute bottom-1 left-1 px-1.5 py-0.5 rounded-md text-[10px] font-medium',
+                                ocrProcessingStates[idx]
+                                    ? 'bg-purple-500 text-white animate-pulse'
+                                    : ocrResults[idx]?.text
+                                        ? 'bg-green-500 text-white'
+                                        : 'bg-gray-500 text-white'
+                            ]"
+                        >
+                            <template v-if="ocrProcessingStates[idx]">识别中</template>
+                            <template v-else-if="ocrResults[idx]?.text">已识别</template>
+                            <template v-else>无文字</template>
+                        </div>
                         <button
                             @click="removeImage(idx)"
                             class="absolute -top-2 -right-2 bg-gray-900 dark:bg-gray-700 hover:bg-red-500 dark:hover:bg-red-600 text-white rounded-full p-1.5 shadow-elevated dark:shadow-dark-elevated opacity-0 group-hover:opacity-100 transition-all duration-200"
@@ -418,19 +528,22 @@ defineExpose({
 
                     <button
                         @click="handleSend"
-                        :disabled="isStreaming ? !canStop : ((!input.trim() && images.length === 0 && parsedFileContents.length === 0) || isSelectionMode)"
+                        :disabled="isAnyOcrProcessing || (isStreaming ? !canStop : ((!input.trim() && images.length === 0 && parsedFileContents.length === 0) || isSelectionMode))"
                         class="p-2.5 rounded-xl transition-all duration-200 shadow-card dark:shadow-dark-card"
                         :class="[
-                            isStreaming
-                                ? (canStop
-                                    ? 'bg-red-500 hover:bg-red-600 text-white hover:shadow-elevated hover:scale-105 cursor-pointer'
-                                    : 'bg-gray-100 dark:bg-gray-700 text-gray-300 dark:text-gray-500 cursor-not-allowed')
-                                : (input.trim() || images.length > 0 || parsedFileContents.length > 0
-                                    ? 'bg-chatgpt-accent dark:bg-chatgpt-dark-accent hover:bg-blue-600 dark:hover:bg-blue-500 text-white hover:shadow-elevated dark:hover:shadow-dark-elevated hover:scale-105'
-                                    : 'bg-gray-100 dark:bg-gray-700 text-gray-300 dark:text-gray-500 cursor-not-allowed')
+                            isAnyOcrProcessing
+                                ? 'bg-purple-500 text-white cursor-wait'
+                                : isStreaming
+                                    ? (canStop
+                                        ? 'bg-red-500 hover:bg-red-600 text-white hover:shadow-elevated hover:scale-105 cursor-pointer'
+                                        : 'bg-gray-100 dark:bg-gray-700 text-gray-300 dark:text-gray-500 cursor-not-allowed')
+                                    : (input.trim() || images.length > 0 || parsedFileContents.length > 0
+                                        ? 'bg-chatgpt-accent dark:bg-chatgpt-dark-accent hover:bg-blue-600 dark:hover:bg-blue-500 text-white hover:shadow-elevated dark:hover:shadow-dark-elevated hover:scale-105'
+                                        : 'bg-gray-100 dark:bg-gray-700 text-gray-300 dark:text-gray-500 cursor-not-allowed')
                         ]"
                     >
-                        <Square v-if="isStreaming" :size="20" :fill="canStop ? 'currentColor' : 'none'" />
+                        <Loader2 v-if="isAnyOcrProcessing" :size="20" class="animate-spin" />
+                        <Square v-else-if="isStreaming" :size="20" :fill="canStop ? 'currentColor' : 'none'" />
                         <Send v-else :size="20" />
                     </button>
                 </div>
