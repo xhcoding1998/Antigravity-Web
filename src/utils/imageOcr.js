@@ -81,7 +81,7 @@ export const formatOcrResultsForAI = (ocrResults) => {
     const validResults = ocrResults.filter(r => r.text && r.text.trim().length > 0);
     if (validResults.length === 0) return '';
 
-    let formatted = '\n\n';
+    let formatted = '\n\n> 💡 **提示**: 以下是前端提取的图片文字 (OCR)，由于算法限制，识别准确率仅供参考。如果你的模型具备视觉识别能力，请优先根据你直接观察到的图片内容（OpenAI Vision 格式已带入数据）进行回答。\n\n';
 
     for (const result of validResults) {
         // 使用和附件一样的标记格式
