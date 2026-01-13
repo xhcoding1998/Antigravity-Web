@@ -60,19 +60,30 @@ const handleConfirm = () => {
 };
 
 const handleCopy = async () => {
-    if (isCopying.value || !props.content || !(props.content instanceof HTMLElement)) return;
+    if (isCopying.value || !props.content) return;
+    if (props.format === 'image' && !(props.content instanceof HTMLElement)) return;
 
     isCopying.value = true;
     try {
-        const result = await copyDOMAsImage(props.content);
-        if (result.success) {
+        if (props.format === 'markdown') {
+            await navigator.clipboard.writeText(props.content);
             copySuccess.value = true;
             setTimeout(() => {
                 copySuccess.value = false;
             }, 2000);
         } else {
-            alert('复制失败: ' + result.error);
+            const result = await copyDOMAsImage(props.content);
+            if (result.success) {
+                copySuccess.value = true;
+                setTimeout(() => {
+                    copySuccess.value = false;
+                }, 2000);
+            } else {
+                alert('复制失败: ' + result.error);
+            }
         }
+    } catch (e) {
+        alert('复制失败: ' + e.message);
     } finally {
         isCopying.value = false;
     }
@@ -159,7 +170,7 @@ const handleCopy = async () => {
                         <!-- Buttons -->
                         <div class="flex gap-3 w-full md:w-auto">
                             <button
-                                v-if="format !== 'image'"
+                                v-if="format === 'pdf'"
                                 @click="$emit('close')"
                                 class="flex-1 md:flex-none px-6 py-2.5 border border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors font-medium"
                             >
@@ -172,7 +183,7 @@ const handleCopy = async () => {
                                 class="flex-1 md:flex-none px-6 py-2.5 border border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors font-medium flex items-center justify-center gap-2"
                             >
                                 <component :is="copySuccess ? Check : Copy" :size="18" />
-                                {{ copySuccess ? '已复制' : (isCopying ? '复制中...' : '复制图片') }}
+                                {{ copySuccess ? '已复制' : (isCopying ? '复制中...' : (format === 'markdown' ? '复制文本' : '复制图片')) }}
                             </button>
                             <button
                                 @click="handleConfirm"

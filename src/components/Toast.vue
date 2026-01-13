@@ -51,18 +51,20 @@ const iconColorMap = {
 </script>
 
 <template>
-    <Transition name="toast">
-        <div
-            v-if="show"
-            :class="[
-                'fixed top-6 left-1/2 -translate-x-1/2 z-[100] flex items-center gap-3 px-5 py-3.5 rounded-xl border-2 shadow-elevated backdrop-blur-sm min-w-[320px] max-w-md',
-                colorMap[type]
-            ]"
-        >
-            <component :is="iconMap[type]" :size="20" :class="['shrink-0', iconColorMap[type]]" />
-            <div class="flex-1 text-sm font-medium">{{ message }}</div>
-        </div>
-    </Transition>
+    <Teleport to="body">
+        <Transition name="toast">
+            <div
+                v-if="show"
+                :class="[
+                    'fixed top-6 left-1/2 -translate-x-1/2 z-[2100] flex items-center justify-center gap-3 px-5 py-3.5 rounded-xl border-2 shadow-elevated backdrop-blur-sm min-w-[320px] max-w-md transition-all duration-300',
+                    colorMap[type]
+                ]"
+            >
+                <component :is="iconMap[type]" :size="20" :class="['shrink-0', iconColorMap[type]]" />
+                <div class="flex-1 text-sm font-medium">{{ message }}</div>
+            </div>
+        </Transition>
+    </Teleport>
 </template>
 
 <style scoped>

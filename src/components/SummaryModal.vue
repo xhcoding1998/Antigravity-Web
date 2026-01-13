@@ -1,6 +1,6 @@
 <script setup>
 import { ref, watch, nextTick } from 'vue';
-import { X, Copy, Check, Share2, Sparkles, Loader2 } from 'lucide-vue-next';
+import { X, Copy, Check, Share2, Wand2, Loader2 } from 'lucide-vue-next';
 import { downloadDOMAsImage } from '../utils/exportUtils';
 import MarkdownIt from 'markdown-it';
 import hljs from 'highlight.js';
@@ -18,42 +18,104 @@ const md = new MarkdownIt({
     linkify: true,
     typographer: true,
     highlight: function (str, lang) {
+        // 检查语言是否支持
         if (lang && hljs.getLanguage(lang)) {
             try {
-                return hljs.highlight(str, { language: lang }).value;
+                return `<pre class="hljs"><code>${hljs.highlight(str, { language: lang, ignoreIllegals: true }).value}</code></pre>`;
             } catch (__) {}
         }
-        return '';
+        // 不支持的语言，返回转义后的纯文本
+        return `<pre class="hljs"><code>${md.utils.escapeHtml(str)}</code></pre>`;
     }
 });
 
 const isCopied = ref(false);
 const cardRef = ref(null);
+const contentAreaRef = ref(null);
 
-// 渲染 Markdown
+// 渲染 Markdown 并自动滚动到底部
 const renderedContent = ref('');
 watch(() => props.content, (newVal) => {
     renderedContent.value = md.render(newVal || '');
+    // 自动滚动到底部
+    nextTick(() => {
+        if (contentAreaRef.value) {
+            contentAreaRef.value.scrollTop = contentAreaRef.value.scrollHeight;
+        }
+    });
 });
 
-// 复制为图片到剪贴板
+// 复制为图片到剪贴板（使用克隆元素，避免闪烁）
 const handleShare = async () => {
     if (!cardRef.value) return;
 
     try {
         const html2canvas = (await import('html2canvas')).default;
 
-        // 临时调整样式以确保截屏完美
-        const originalStyle = cardRef.value.style.cssText;
-        // 确保背景不透明，且没有圆角问题（如果系统直接复制透明PNG可能在某些软件显示黑色）
-        // 这里我们给一个漂亮的背景色
+        // 克隆卡片元素
+        const clonedCard = cardRef.value.cloneNode(true);
 
-        const canvas = await html2canvas(cardRef.value, {
+        // 设置克隆元素的样式
+        clonedCard.style.position = 'absolute';
+        clonedCard.style.left = '-9999px';
+        clonedCard.style.top = '0';
+        clonedCard.style.width = cardRef.value.offsetWidth + 'px';
+
+        // 移除关闭按钮
+        const closeBtn = clonedCard.querySelector('.close-btn');
+        if (closeBtn) {
+            closeBtn.remove();
+        }
+
+        // 移除内容区的高度限制
+        const cardBody = clonedCard.querySelector('.card-body');
+        if (cardBody) {
+            cardBody.style.maxHeight = 'none';
+            cardBody.style.overflow = 'visible';
+        }
+
+        // 让代码块换行显示而不是滚动（使用 cssText 强制覆盖）
+        const codeBlocks = clonedCard.querySelectorAll('pre, pre.hljs, pre code, .hljs');
+        codeBlocks.forEach(block => {
+            block.style.cssText += `
+                white-space: pre-wrap !important;
+                word-wrap: break-word !important;
+                word-break: break-all !important;
+                overflow-x: visible !important;
+                overflow: visible !important;
+                max-width: 100% !important;
+            `;
+        });
+
+        // 修复行内代码样式（避免 html2canvas 渲染偏移）
+        const inlineCodes = clonedCard.querySelectorAll('code:not(pre code)');
+        inlineCodes.forEach(code => {
+            code.style.cssText += `
+                display: inline !important;
+                vertical-align: baseline !important;
+                line-height: inherit !important;
+                padding: 2px 6px !important;
+                margin: 0 !important;
+                position: relative !important;
+                top: 0 !important;
+            `;
+        });
+
+        // 将克隆元素添加到 body
+        document.body.appendChild(clonedCard);
+
+        // 等待 DOM 渲染
+        await new Promise(resolve => setTimeout(resolve, 100));
+
+        const canvas = await html2canvas(clonedCard, {
             scale: 2,
-            backgroundColor: null, // 如果想要透明背景
+            backgroundColor: '#ffffff',
             useCORS: true,
             logging: false
         });
+
+        // 移除克隆元素
+        document.body.removeChild(clonedCard);
 
         canvas.toBlob(async (blob) => {
             if (!blob) return;
@@ -89,6 +151,15 @@ const handleShare = async () => {
                     ref="cardRef"
                     class="summary-card"
                 >
+                    <!-- 右上角关闭按钮 (在卡片内部) -->
+                    <button
+                        @click="$emit('close')"
+                        class="close-btn"
+                        aria-label="关闭"
+                    >
+                        <X :size="20" />
+                    </button>
+
                     <!-- 卡片头部 (macOS 风格) -->
                     <div class="card-header">
                         <div class="window-controls">
@@ -97,13 +168,13 @@ const handleShare = async () => {
                             <div class="dot green"></div>
                         </div>
                         <div class="card-title">
-                            <Sparkles :size="14" class="icon-sparkles" />
+                            <Wand2 :size="14" class="icon-wand" />
                             <span>对话智能总结</span>
                         </div>
                     </div>
 
                     <!-- 主要内容区域 -->
-                    <div class="card-body">
+                    <div ref="contentAreaRef" class="card-body">
                         <div v-if="!content && isLoading" class="loading-state">
                             <Loader2 :size="24" class="animate-spin text-gray-400" />
                             <span>正在生成总结...</span>
@@ -119,19 +190,15 @@ const handleShare = async () => {
                         <span v-if="isLoading && content" class="typing-cursor"></span>
                     </div>
 
-                    <!-- 底部署名/时间 (可选，增强卡片感) -->
+                    <!-- 底部署名/时间 -->
                     <div class="card-footer">
                         <span>Generated by Antigravity AI</span>
                         <span>{{ new Date().toLocaleDateString() }}</span>
                     </div>
                 </div>
 
-                <!-- 底部操作栏 (悬浮在卡片下方，不包含在截图中) -->
+                <!-- 底部操作栏 - 只保留复制分享按钮 -->
                 <div class="action-bar">
-                    <button class="action-btn secondary" @click="$emit('close')">
-                        <X :size="18" />
-                        关闭
-                    </button>
                     <button class="action-btn primary" @click="handleShare" :disabled="isLoading && !content">
                         <component :is="isCopied ? Check : Share2" :size="18" />
                         {{ isCopied ? '已复制到剪贴板' : '复制分享卡片' }}
@@ -160,6 +227,38 @@ const handleShare = async () => {
     padding: 20px;
 }
 
+/* 右上角关闭按钮 - 相对于卡片定位 */
+.close-btn {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: rgba(0, 0, 0, 0.05);
+    border: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    color: #888;
+    transition: all 0.2s;
+    z-index: 10;
+}
+.close-btn:hover {
+    background: rgba(0, 0, 0, 0.1);
+    color: #333;
+    transform: scale(1.1);
+}
+.dark .close-btn {
+    background: rgba(255, 255, 255, 0.1);
+    color: #888;
+}
+.dark .close-btn:hover {
+    background: rgba(255, 255, 255, 0.2);
+    color: white;
+}
+
 .modal-wrapper {
     display: flex;
     flex-direction: column;
@@ -170,6 +269,7 @@ const handleShare = async () => {
 
 /* 卡片样式 - 也是截图的目标 */
 .summary-card {
+    position: relative;
     width: 600px;
     max-width: 90vw;
     background: white; /* 浅色模式背景 */
@@ -234,8 +334,8 @@ const handleShare = async () => {
 .dark .card-title {
     color: #aaa;
 }
-.icon-sparkles {
-    color: #8b5cf6;
+.icon-wand {
+    color: #3B82F6;
 }
 
 /* 内容区 */
@@ -257,6 +357,7 @@ const handleShare = async () => {
     font-size: 15px;
     line-height: 1.6;
     color: #333;
+    scroll-behavior: smooth;
 }
 .dark .card-body {
     color: #ddd;
@@ -294,6 +395,7 @@ const handleShare = async () => {
 /* Action Bar */
 .action-bar {
     display: flex;
+    justify-content: center;
     gap: 12px;
 }
 
@@ -325,13 +427,13 @@ const handleShare = async () => {
 }
 
 .action-btn.primary {
-    background: #10a37f;
+    background: #3B82F6;
     color: white;
 }
 .action-btn.primary:hover {
-    background: #0d8a6c;
+    background: #2563EB;
     transform: translateY(-2px);
-    box-shadow: 0 6px 16px rgba(16, 163, 127, 0.3);
+    box-shadow: 0 6px 16px rgba(59, 130, 246, 0.3);
 }
 .action-btn:disabled {
     opacity: 0.6;
@@ -339,17 +441,47 @@ const handleShare = async () => {
     transform: none;
 }
 
-/* Markdown Styles (简化版) */
+/* Markdown Styles */
 .markdown-body :deep(p) { margin-bottom: 1em; }
 .markdown-body :deep(h1), .markdown-body :deep(h2), .markdown-body :deep(h3) { margin-top: 1em; margin-bottom: 0.5em; font-weight: 600; }
-.markdown-body :deep(ul) { list-style-type: disc; padding-left: 20px; margin-bottom: 1em; }
+.markdown-body :deep(h2) { font-size: 1.25em; color: #3B82F6; }
+.markdown-body :deep(h3) { font-size: 1.1em; color: #6B7280; }
+.markdown-body :deep(ul), .markdown-body :deep(ol) { padding-left: 20px; margin-bottom: 1em; }
+.markdown-body :deep(ul) { list-style-type: disc; }
+.markdown-body :deep(ol) { list-style-type: decimal; }
 .markdown-body :deep(li) { margin-bottom: 0.4em; }
-.markdown-body :deep(strong) { font-weight: 700; color: #10a37f; } /* 强调色 */
+.markdown-body :deep(strong) { font-weight: 700; color: #3B82F6; }
+
+/* 代码块样式 */
+.markdown-body :deep(pre.hljs) {
+    background: #1e1e1e;
+    border-radius: 8px;
+    padding: 16px;
+    margin: 12px 0;
+    overflow-x: auto;
+    font-size: 13px;
+    line-height: 1.5;
+}
+.markdown-body :deep(pre.hljs code) {
+    color: #d4d4d4;
+    font-family: 'Fira Code', 'Consolas', 'Monaco', monospace;
+}
+.markdown-body :deep(code:not(pre code)) {
+    background: rgba(59, 130, 246, 0.1);
+    color: #3B82F6;
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 0.9em;
+}
+.dark .markdown-body :deep(code:not(pre code)) {
+    background: rgba(96, 165, 250, 0.15);
+    color: #60A5FA;
+}
 
 .typing-cursor::after {
     content: '▋';
     display: inline-block;
-    color: #10a37f;
+    color: #3B82F6;
     animation: blink 1s step-start infinite;
     margin-left: 4px;
 }

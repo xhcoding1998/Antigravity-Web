@@ -23,10 +23,15 @@ const md = new MarkdownIt({
     linkify: true,
     typographer: true,
     highlight: function (str, lang) {
-        // 不在这里高亮，而是返回原始代码，在渲染后再处理
-        if (lang) {
-            return `<pre><code class="hljs language-${lang}">${md.utils.escapeHtml(str)}</code></pre>`;
+        // 检查语言是否被 hljs 支持
+        if (lang && hljs.getLanguage(lang)) {
+            try {
+                return `<pre><code class="hljs language-${lang}">${hljs.highlight(str, { language: lang, ignoreIllegals: true }).value}</code></pre>`;
+            } catch (e) {
+                // 高亮失败，回退到纯文本
+            }
         }
+        // 语言不支持或高亮失败，返回转义后的纯文本
         return `<pre><code class="hljs">${md.utils.escapeHtml(str)}</code></pre>`;
     }
 });
@@ -206,13 +211,10 @@ const renderMermaidDiagrams = async () => {
                 parent.replaceWith(errorContainer);
             }
         } else if (!isMermaid) {
-            // 普通代码块 - 添加语法高亮和复制按钮
+            // 普通代码块 - 添加复制按钮（高亮已在 markdown-it 渲染时完成）
             if (parent.dataset.highlighted === 'true') continue;
 
             try {
-                // 应用语法高亮
-                hljs.highlightElement(block);
-
                 // 创建复制按钮容器
                 const copyButtonContainer = document.createElement('div');
                 copyButtonContainer.className = 'code-block-header';
@@ -259,7 +261,7 @@ const renderMermaidDiagrams = async () => {
 
                 parent.dataset.highlighted = 'true';
             } catch (error) {
-                console.error('代码高亮失败:', error);
+                // 静默处理错误，不打印到控制台
             }
         }
     }
@@ -450,7 +452,7 @@ const isWaitingResponse = computed(() => {
 
 // Loading 文本数组
 const loadingTexts = [
-    '思考中',
+    '已接收信息',
     '正在分析',
     '处理中',
     '理解中',
@@ -586,7 +588,7 @@ const handleMessageClick = (event) => {
         <div
             @click="handleMessageClick"
             :class="[
-                'max-w-4xl w-full flex gap-4 px-6 md:px-5 group rounded-xl py-3 border-2',
+                'max-w-4xl w-full flex gap-4 px-6 md:px-5 group rounded-xl py-6 border-2',
                 isUser ? 'bg-chatgpt-user dark:bg-chatgpt-dark-user' : 'bg-chatgpt-assistant dark:bg-chatgpt-dark-assistant',
                 !isSelectionMode ? 'border-transparent' : '',
                 isSelectionMode ? 'cursor-pointer' : '',
@@ -608,7 +610,7 @@ const handleMessageClick = (event) => {
             <div
                 :class="[
                     'w-8 h-8 rounded-full flex items-center justify-center shrink-0 shadow-sm',
-                    isUser ? 'bg-gradient-to-br from-blue-500 to-purple-600' : 'bg-gradient-to-br from-emerald-500 to-teal-600'
+                    isUser ? 'bg-gradient-to-br from-blue-500 to-purple-600' : 'bg-gradient-to-br from-blue-500 to-indigo-600'
                 ]"
             >
                 <User v-if="isUser" :size="18" class="text-white" />
@@ -711,7 +713,7 @@ const handleMessageClick = (event) => {
                     </button>
                     <button
                         @click="handleResend"
-                        class="p-1 hover:bg-emerald-100 dark:hover:bg-emerald-900/30 rounded-md text-chatgpt-subtext hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors flex items-center gap-1 text-xs"
+                        class="p-1 hover:bg-blue-100 dark:hover:bg-blue-900/30 rounded-md text-chatgpt-subtext hover:text-blue-600 dark:hover:text-blue-400 transition-colors flex items-center gap-1 text-xs"
                         title="重新发送这条消息">
                         <RefreshCw :size="13" />
                         <span class="text-xs">重新发送</span>
@@ -843,7 +845,7 @@ const handleMessageClick = (event) => {
 }
 
 .markdown-body blockquote {
-    @apply border-l-4 border-emerald-500 pl-4 py-1 my-2 bg-transparent text-gray-500 dark:text-gray-400 not-italic flex items-center;
+    @apply border-l-4 border-blue-500 pl-4 py-1 my-2 bg-transparent text-gray-500 dark:text-gray-400 not-italic flex items-center;
 }
 
 .markdown-body blockquote p {
@@ -929,7 +931,7 @@ const handleMessageClick = (event) => {
     display: inline-block;
     width: 0.45rem;
     height: 1rem;
-    background-color: var(--chatgpt-accent, #10a37f);
+    background-color: var(--chatgpt-accent, #3B82F6);
     margin-left: 0.25rem;
     vertical-align: middle;
     animation: cursor-blink 0.8s step-end infinite;
@@ -952,7 +954,7 @@ const handleMessageClick = (event) => {
 .dark .is-streaming > h4:last-child::after,
 .dark .is-streaming > h5:last-child::after,
 .dark .is-streaming > h6:last-child::after {
-    background-color: var(--chatgpt-dark-accent, #10a37f);
+    background-color: var(--chatgpt-dark-accent, #3B82F6);
     box-shadow: 0 0 8px rgba(16, 163, 127, 0.6);
 }
 </style>

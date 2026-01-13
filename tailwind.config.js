@@ -18,7 +18,7 @@ export default {
           border: '#E5E7EB',
           text: '#111827',
           subtext: '#6B7280',
-          accent: '#10A37F',
+          accent: '#3B82F6',  // 蓝色主色 (blue-500)
 
           // 暗色主题颜色（柔和配色）
           dark: {
@@ -30,7 +30,7 @@ export default {
             border: '#4A4B57',       // 边框颜色
             text: '#ECECF1',         // 主文字颜色（柔和白）
             subtext: '#9CA3AF',      // 次要文字颜色（柔和灰）
-            accent: '#19C37D'        // 强调色（柔和绿）
+            accent: '#60A5FA'        // 强调色（柔和蓝 blue-400）
           }
         }
       },

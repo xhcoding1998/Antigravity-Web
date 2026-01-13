@@ -1,16 +1,18 @@
 <script setup>
-import { ref, watch, computed, onMounted, onUnmounted } from 'vue';
-import { Send, X, MessageSquare, MessageSquareOff, GitBranch } from 'lucide-vue-next';
+import { ref, watch, computed, onMounted, onUnmounted, nextTick } from 'vue';
+import { Send, X, MessageSquare, MessageSquareOff, GitBranch, Square } from 'lucide-vue-next';
 
 const props = defineProps({
-    disabled: Boolean,
+    isStreaming: Boolean,
+    canStop: Boolean,
+    isSelectionMode: Boolean,
     modelName: String,
     contextEnabled: Boolean,
     isDrawingModel: Boolean,
     diagramEnabled: Boolean
 });
 
-const emit = defineEmits(['send', 'update:contextEnabled', 'update:diagramEnabled']);
+const emit = defineEmits(['send', 'stop', 'update:contextEnabled', 'update:diagramEnabled']);
 
 const input = ref('');
 const images = ref([]);
@@ -39,7 +41,13 @@ const toggleDiagram = () => {
 };
 
 const handleSend = () => {
-    if ((!input.value.trim() && images.value.length === 0) || props.disabled) return;
+    if (props.isStreaming) {
+        if (props.canStop) {
+            emit('stop');
+        }
+        return;
+    }
+    if ((!input.value.trim() && images.value.length === 0) || props.isSelectionMode) return;
     emit('send', input.value, [...images.value]);
     input.value = '';
     images.value = [];
@@ -51,8 +59,11 @@ const handleSend = () => {
 // 处理键盘事件 - 支持 Ctrl+Enter 换行
 const handleKeyDown = (event) => {
     if (event.key === 'Enter') {
-        if (event.ctrlKey || event.metaKey) {
-            // Ctrl+Enter 或 Cmd+Enter: 插入换行符
+        if (event.shiftKey) {
+            // Shift+Enter: 插入换行符
+            // 注意：某些输入法可能会触发 Enter，需要确保 shiftKey 状态正确
+            // 但在这里我们坚持如果不阻止默认行为，浏览器也会换行。
+            // 使用 preventDefault + 手动插入是为了保证行为一致性和光标控制（以及 adjustHeight）
             event.preventDefault();
             const textarea = event.target;
             const start = textarea.selectionStart;
@@ -134,7 +145,9 @@ onUnmounted(() => {
     }
 });
 
-watch(input, adjustHeight);
+watch(input, () => {
+    nextTick(adjustHeight);
+});
 
 // 暴露方法供父组件调用
 const focus = () => {
@@ -164,8 +177,8 @@ defineExpose({
 </script>
 
 <template>
-    <div class="absolute bottom-0 left-0 w-full bg-gradient-to-t from-white dark:from-chatgpt-dark-main via-white dark:via-chatgpt-dark-main to-transparent pt-8 px-6 md:px-4 transition-colors duration-200">
-        <div class="max-w-4xl mx-auto pb-3 md:pb-5 flex flex-col gap-2">
+    <div class="flex-shrink-0 w-full bg-chatgpt-main dark:bg-chatgpt-dark-main px-6 md:px-4 pb-3 md:pb-5 pt-4 transition-colors duration-200">
+        <div class="max-w-4xl mx-auto pb-3 md:pb-0 flex flex-col gap-2">
 
             <!-- Context Toggle -->
             <div class="flex items-center justify-between px-2 gap-3">
@@ -178,7 +191,7 @@ defineExpose({
                         isDrawingModel
                             ? 'bg-gray-100 dark:bg-gray-700 text-gray-400 dark:text-gray-500 cursor-not-allowed'
                             : contextEnabled
-                                ? 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-200 dark:hover:bg-emerald-900/40'
+                                ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 hover:bg-blue-200 dark:hover:bg-blue-900/40'
                                 : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600'
                     ]"
                     :title="isDrawingModel ? '绘图模型不支持上下文' : (contextEnabled ? '点击关闭上下文' : '点击开启上下文')"
@@ -234,25 +247,34 @@ defineExpose({
                         ref="textareaRef"
                         v-model="input"
                         rows="1"
-                        :placeholder="images.length > 0 ? `描述图片内容或提问...` : `给 ${displayName} 发消息... (Ctrl+Enter 换行)`"
+                        :placeholder="images.length > 0 ? `描述图片内容或提问...` : `给 ${displayName} 发消息... (Shift+Enter 换行)`"
                         @keydown="handleKeyDown"
                         class="flex-1 resize-none border-0 bg-transparent p-3 md:p-3.5 focus:ring-0 focus:outline-none text-chatgpt-text dark:text-chatgpt-dark-text placeholder-gray-400 dark:placeholder-gray-500 text-[15px] max-h-48 custom-scrollbar leading-relaxed"
-                        :disabled="disabled"
+                        :disabled="isStreaming || isSelectionMode"
                     ></textarea>
 
                     <button
                         @click="handleSend"
-                        :disabled="(!input.trim() && images.length === 0) || disabled"
+                        :disabled="isStreaming ? !canStop : ((!input.trim() && images.length === 0) || isSelectionMode)"
                         class="mb-1.5 p-2.5 rounded-xl transition-all duration-200 shadow-card dark:shadow-dark-card"
-                        :class="input.trim() || images.length > 0 ? 'bg-chatgpt-accent dark:bg-chatgpt-dark-accent hover:bg-emerald-600 dark:hover:bg-emerald-500 text-white hover:shadow-elevated dark:hover:shadow-dark-elevated hover:scale-105' : 'bg-gray-100 dark:bg-gray-700 text-gray-300 dark:text-gray-500 cursor-not-allowed'"
+                        :class="[
+                            isStreaming
+                                ? (canStop
+                                    ? 'bg-red-500 hover:bg-red-600 text-white hover:shadow-elevated hover:scale-105 cursor-pointer'
+                                    : 'bg-gray-100 dark:bg-gray-700 text-gray-300 dark:text-gray-500 cursor-not-allowed')
+                                : (input.trim() || images.length > 0
+                                    ? 'bg-chatgpt-accent dark:bg-chatgpt-dark-accent hover:bg-blue-600 dark:hover:bg-blue-500 text-white hover:shadow-elevated dark:hover:shadow-dark-elevated hover:scale-105'
+                                    : 'bg-gray-100 dark:bg-gray-700 text-gray-300 dark:text-gray-500 cursor-not-allowed')
+                        ]"
                     >
-                        <Send :size="20" />
+                        <Square v-if="isStreaming" :size="20" :fill="canStop ? 'currentColor' : 'none'" />
+                        <Send v-else :size="20" />
                     </button>
                 </div>
             </div>
 
             <p class="text-xs text-center text-chatgpt-subtext dark:text-chatgpt-dark-subtext mt-1 px-4">
-                {{ displayName }} 可能会出错。请核对重要信息。支持粘贴图片 (Ctrl+V) · Ctrl+Enter 换行
+                {{ displayName }} 可能会出错。请核对重要信息。支持粘贴图片 (Ctrl+V) · Shift+Enter 换行
             </p>
         </div>
     </div>

@@ -725,7 +725,7 @@ const handleDeleteApiConfig = (groupId) => {
                             </button>
                             <button
                                 @click="startAddModel"
-                                class="flex items-center gap-2 px-4 py-2 bg-chatgpt-accent dark:bg-chatgpt-dark-accent text-white rounded-lg hover:bg-emerald-600 dark:hover:bg-emerald-500 transition-colors text-sm font-medium shadow-sm hover:shadow-md dark:shadow-dark-card dark:hover:shadow-dark-elevated"
+                                class="flex items-center gap-2 px-4 py-2 bg-chatgpt-accent dark:bg-chatgpt-dark-accent text-white rounded-lg hover:bg-blue-600 dark:hover:bg-blue-500 transition-colors text-sm font-medium shadow-sm hover:shadow-md dark:shadow-dark-card dark:hover:shadow-dark-elevated"
                             >
                                 <Plus :size="16" />
                                 添加模型
@@ -744,7 +744,7 @@ const handleDeleteApiConfig = (groupId) => {
                         </p>
                         <button
                             @click="activeTab = 'api'"
-                            class="inline-flex items-center gap-2 px-6 py-3 bg-chatgpt-accent dark:bg-chatgpt-dark-accent text-white rounded-lg hover:bg-emerald-600 dark:hover:bg-emerald-500 transition-colors text-sm font-medium shadow-sm hover:shadow-md"
+                            class="inline-flex items-center gap-2 px-6 py-3 bg-chatgpt-accent dark:bg-chatgpt-dark-accent text-white rounded-lg hover:bg-blue-600 dark:hover:bg-blue-500 transition-colors text-sm font-medium shadow-sm hover:shadow-md"
                         >
                             前往创建API配置
                         </button>
@@ -770,7 +770,7 @@ const handleDeleteApiConfig = (groupId) => {
                             </button>
                             <button
                                 @click="startAddModel"
-                                class="inline-flex items-center gap-2 px-6 py-3 bg-chatgpt-accent dark:bg-chatgpt-dark-accent text-white rounded-lg hover:bg-emerald-600 dark:hover:bg-emerald-500 transition-colors text-sm font-medium shadow-sm hover:shadow-md"
+                                class="inline-flex items-center gap-2 px-6 py-3 bg-chatgpt-accent dark:bg-chatgpt-dark-accent text-white rounded-lg hover:bg-blue-600 dark:hover:bg-blue-500 transition-colors text-sm font-medium shadow-sm hover:shadow-md"
                             >
                                 <Plus :size="18" />
                                 手动添加模型
@@ -786,7 +786,7 @@ const handleDeleteApiConfig = (groupId) => {
                             :class="[
                                 'border rounded-xl p-4 hover:shadow-sm dark:hover:shadow-dark-card transition-all',
                                 model.id === props.selectedModelId
-                                    ? 'border-chatgpt-accent dark:border-chatgpt-dark-accent bg-gradient-to-br from-emerald-50 to-teal-50/50 dark:from-emerald-900/20 dark:to-teal-900/10 shadow-sm dark:shadow-dark-card'
+                                    ? 'border-chatgpt-accent dark:border-chatgpt-dark-accent bg-gradient-to-br from-blue-50 to-indigo-50/50 dark:from-blue-900/20 dark:to-indigo-900/10 shadow-sm dark:shadow-dark-card'
                                     : 'border-gray-200 dark:border-chatgpt-dark-border bg-gradient-to-br from-white to-gray-50/50 dark:from-chatgpt-dark-main dark:to-chatgpt-dark-user/30 hover:border-chatgpt-accent/50 dark:hover:border-chatgpt-dark-accent/50'
                             ]"
                         >
@@ -819,7 +819,7 @@ const handleDeleteApiConfig = (groupId) => {
                                 <div class="flex gap-2 pt-2">
                                     <button
                                         @click="saveEditModel"
-                                        class="flex items-center gap-1 px-4 py-2 bg-chatgpt-accent text-white rounded-lg hover:bg-emerald-600 transition-colors text-sm font-medium"
+                                        class="flex items-center gap-1 px-4 py-2 bg-chatgpt-accent text-white rounded-lg hover:bg-blue-600 transition-colors text-sm font-medium"
                                     >
                                         <Save :size="14" />
                                         保存
@@ -870,7 +870,7 @@ const handleDeleteApiConfig = (groupId) => {
                     </div>
 
                     <!-- 添加模型表单 -->
-                    <div ref="addModelFormRef" v-if="showAddModel" class="border-2 border-dashed border-chatgpt-accent dark:border-chatgpt-dark-accent rounded-xl p-5 bg-gradient-to-br from-emerald-50/50 to-teal-50/30 dark:from-emerald-900/10 dark:to-teal-900/10 space-y-4">
+                    <div ref="addModelFormRef" v-if="showAddModel" class="border-2 border-dashed border-chatgpt-accent dark:border-chatgpt-dark-accent rounded-xl p-5 bg-gradient-to-br from-blue-50/50 to-indigo-50/30 dark:from-blue-900/10 dark:to-indigo-900/10 space-y-4">
                         <div class="flex items-center justify-between mb-2">
                             <h4 class="font-semibold text-gray-900 dark:text-chatgpt-dark-text flex items-center gap-2">
                                 <Plus :size="18" class="text-chatgpt-accent" />
@@ -904,7 +904,7 @@ const handleDeleteApiConfig = (groupId) => {
                         <div class="flex gap-2 pt-2">
                             <button
                                 @click="addModel"
-                                class="flex items-center gap-2 px-5 py-2.5 bg-chatgpt-accent text-white rounded-lg hover:bg-emerald-600 transition-colors text-sm font-medium shadow-sm hover:shadow-md"
+                                class="flex items-center gap-2 px-5 py-2.5 bg-chatgpt-accent text-white rounded-lg hover:bg-blue-600 transition-colors text-sm font-medium shadow-sm hover:shadow-md"
                             >
                                 <Plus :size="16" />
                                 添加
@@ -937,7 +937,7 @@ const handleDeleteApiConfig = (groupId) => {
                         </div>
                         <button
                             @click="startAddApiConfig"
-                            class="flex items-center gap-2 px-4 py-2 bg-chatgpt-accent dark:bg-chatgpt-dark-accent text-white rounded-lg hover:bg-emerald-600 dark:hover:bg-emerald-500 transition-colors text-sm font-medium shadow-sm hover:shadow-md"
+                            class="flex items-center gap-2 px-4 py-2 bg-chatgpt-accent dark:bg-chatgpt-dark-accent text-white rounded-lg hover:bg-blue-600 dark:hover:bg-blue-500 transition-colors text-sm font-medium shadow-sm hover:shadow-md"
                         >
                             <Plus :size="16" />
                             新增API配置
@@ -955,7 +955,7 @@ const handleDeleteApiConfig = (groupId) => {
                         </p>
                         <button
                             @click="startAddApiConfig"
-                            class="inline-flex items-center gap-2 px-6 py-3 bg-chatgpt-accent dark:bg-chatgpt-dark-accent text-white rounded-lg hover:bg-emerald-600 dark:hover:bg-emerald-500 transition-colors text-sm font-medium shadow-sm hover:shadow-md"
+                            class="inline-flex items-center gap-2 px-6 py-3 bg-chatgpt-accent dark:bg-chatgpt-dark-accent text-white rounded-lg hover:bg-blue-600 dark:hover:bg-blue-500 transition-colors text-sm font-medium shadow-sm hover:shadow-md"
                         >
                             <Plus :size="18" />
                             创建第一个API配置
@@ -1060,7 +1060,7 @@ const handleDeleteApiConfig = (groupId) => {
                     </div>
 
                     <!-- 新增API配置表单 -->
-                    <div ref="addApiConfigFormRef" v-if="showAddApiConfig" class="border-2 border-dashed border-chatgpt-accent dark:border-chatgpt-dark-accent rounded-xl p-5 bg-gradient-to-br from-emerald-50/50 to-teal-50/30 dark:from-emerald-900/10 dark:to-teal-900/10 space-y-4">
+                    <div ref="addApiConfigFormRef" v-if="showAddApiConfig" class="border-2 border-dashed border-chatgpt-accent dark:border-chatgpt-dark-accent rounded-xl p-5 bg-gradient-to-br from-blue-50/50 to-indigo-50/30 dark:from-blue-900/10 dark:to-indigo-900/10 space-y-4">
                         <div class="flex items-center justify-between mb-2">
                             <h4 class="font-semibold text-gray-900 dark:text-chatgpt-dark-text flex items-center gap-2">
                                 <Plus :size="18" class="text-chatgpt-accent" />
@@ -1129,7 +1129,7 @@ const handleDeleteApiConfig = (groupId) => {
                             <button
                                 @click="handleCreateApiConfig"
                                 :disabled="isCreatingApiConfig"
-                                class="flex items-center gap-2 px-5 py-2.5 bg-chatgpt-accent text-white rounded-lg hover:bg-emerald-600 transition-colors text-sm font-medium shadow-sm hover:shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
+                                class="flex items-center gap-2 px-5 py-2.5 bg-chatgpt-accent text-white rounded-lg hover:bg-blue-600 transition-colors text-sm font-medium shadow-sm hover:shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
                             >
                                 <Plus :size="16" v-if="!isCreatingApiConfig" />
                                 <RefreshCw :size="16" :class="{ 'animate-spin': isCreatingApiConfig }" v-else />
@@ -1175,8 +1175,8 @@ const handleDeleteApiConfig = (groupId) => {
                                     <div class="text-2xl font-bold text-blue-600 dark:text-blue-400">{{ storageInfo.total.usageInMB }}</div>
                                     <div class="text-xs text-gray-600 dark:text-gray-400 mt-1">已使用 (MB)</div>
                                 </div>
-                                <div class="bg-white/70 dark:bg-chatgpt-dark-user/70 rounded-lg p-3 text-center border border-emerald-100 dark:border-emerald-800">
-                                    <div class="text-2xl font-bold text-emerald-600 dark:text-emerald-400">{{ storageInfo.total.quotaInMB }}</div>
+                                <div class="bg-white/70 dark:bg-chatgpt-dark-user/70 rounded-lg p-3 text-center border border-blue-100 dark:border-blue-800">
+                                    <div class="text-2xl font-bold text-blue-600 dark:text-blue-400">{{ storageInfo.total.quotaInMB }}</div>
                                     <div class="text-xs text-gray-600 dark:text-gray-400 mt-1">总配额 (MB)</div>
                                 </div>
                                 <div class="bg-white/70 dark:bg-chatgpt-dark-user/70 rounded-lg p-3 text-center border border-purple-100 dark:border-purple-800">
@@ -1197,7 +1197,7 @@ const handleDeleteApiConfig = (groupId) => {
                                         :class="[
                                             parseFloat(storageInfo.total.percentUsed) > 80 ? 'bg-red-500' :
                                             parseFloat(storageInfo.total.percentUsed) > 50 ? 'bg-yellow-500' :
-                                            'bg-emerald-500'
+                                            'bg-blue-500'
                                         ]"
                                         :style="{ width: storageInfo.total.percentUsed + '%' }"
                                     ></div>
@@ -1295,7 +1295,7 @@ const handleDeleteApiConfig = (groupId) => {
                         </label>
                         <div class="space-y-3">
                             <label class="flex items-center p-4 border-2 rounded-lg cursor-pointer transition-all hover:border-gray-300 dark:hover:border-gray-600"
-                                :class="localDataRetention === 3 ? 'border-chatgpt-accent bg-emerald-50 dark:bg-emerald-900/20' : 'border-gray-200 dark:border-chatgpt-dark-border'"
+                                :class="localDataRetention === 3 ? 'border-chatgpt-accent bg-blue-50 dark:bg-blue-900/20' : 'border-gray-200 dark:border-chatgpt-dark-border'"
                             >
                                 <input
                                     type="radio"
@@ -1310,7 +1310,7 @@ const handleDeleteApiConfig = (groupId) => {
                             </label>
 
                             <label class="flex items-center p-4 border-2 rounded-lg cursor-pointer transition-all hover:border-gray-300 dark:hover:border-gray-600"
-                                :class="localDataRetention === 7 ? 'border-chatgpt-accent bg-emerald-50 dark:bg-emerald-900/20' : 'border-gray-200 dark:border-chatgpt-dark-border'"
+                                :class="localDataRetention === 7 ? 'border-chatgpt-accent bg-blue-50 dark:bg-blue-900/20' : 'border-gray-200 dark:border-chatgpt-dark-border'"
                             >
                                 <input
                                     type="radio"
@@ -1325,7 +1325,7 @@ const handleDeleteApiConfig = (groupId) => {
                             </label>
 
                             <label class="flex items-center p-4 border-2 rounded-lg cursor-pointer transition-all hover:border-gray-300 dark:hover:border-gray-600"
-                                :class="localDataRetention === 30 ? 'border-chatgpt-accent bg-emerald-50 dark:bg-emerald-900/20' : 'border-gray-200 dark:border-chatgpt-dark-border'"
+                                :class="localDataRetention === 30 ? 'border-chatgpt-accent bg-blue-50 dark:bg-blue-900/20' : 'border-gray-200 dark:border-chatgpt-dark-border'"
                             >
                                 <input
                                     type="radio"
@@ -1355,7 +1355,7 @@ const handleDeleteApiConfig = (groupId) => {
                                 :class="[
                                     'border rounded-xl px-4 py-2 hover:shadow-sm dark:hover:shadow-dark-card transition-all cursor-pointer',
                                     localCodeTheme === theme.id
-                                        ? 'border-chatgpt-accent dark:border-chatgpt-dark-accent bg-gradient-to-br from-emerald-50 to-teal-50/50 dark:from-emerald-900/20 dark:to-teal-900/10 shadow-sm dark:shadow-dark-card'
+                                        ? 'border-chatgpt-accent dark:border-chatgpt-dark-accent bg-gradient-to-br from-blue-50 to-indigo-50/50 dark:from-blue-900/20 dark:to-indigo-900/10 shadow-sm dark:shadow-dark-card'
                                         : 'border-gray-200 dark:border-chatgpt-dark-border bg-gradient-to-br from-white to-gray-50/50 dark:from-chatgpt-dark-main dark:to-chatgpt-dark-user/30 hover:border-chatgpt-accent/50 dark:hover:border-chatgpt-dark-accent/50'
                                 ]"
                                 @click="localCodeTheme = theme.id"
@@ -1407,7 +1407,7 @@ const handleDeleteApiConfig = (groupId) => {
                     </button>
                     <button
                         @click="closeSettings"
-                        class="px-6 py-2 bg-chatgpt-accent dark:bg-chatgpt-dark-accent text-white rounded-lg hover:bg-emerald-600 dark:hover:bg-emerald-500 transition-colors text-sm font-medium"
+                        class="px-6 py-2 bg-chatgpt-accent dark:bg-chatgpt-dark-accent text-white rounded-lg hover:bg-blue-600 dark:hover:bg-blue-500 transition-colors text-sm font-medium"
                     >
                         保存设置
                     </button>

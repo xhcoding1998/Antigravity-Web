@@ -78,6 +78,8 @@ const {
     deleteChat,
     clearHistory,
     sendMessage,
+    stopResponse,
+    canStop,
     resendMessage,
     editMessage,
     updateModels,
@@ -351,8 +353,20 @@ const handleSelectChat = (id) => {
 const showSummaryModal = ref(false);
 const summaryContent = ref('');
 const isSummarizing = ref(false);
+let summaryAbortController = null;
+
+const handleCloseSummary = () => {
+    showSummaryModal.value = false;
+    if (summaryAbortController) {
+        summaryAbortController.abort();
+        summaryAbortController = null;
+    }
+    isSummarizing.value = false;
+};
 
 const handleSummarize = async () => {
+    if (isSummarizing.value) return; // 防止重复触发
+
     if (messages.value.length === 0) {
         showToast('暂无对话可总结', 'warning');
         return;
@@ -367,6 +381,9 @@ const handleSummarize = async () => {
     summaryContent.value = '';
     isSummarizing.value = true;
 
+    // 创建新的 AbortController
+    summaryAbortController = new AbortController();
+
     try {
         // 构造上下文
         const validMessages = messages.value.filter(m => !m.error);
@@ -380,14 +397,40 @@ const handleSummarize = async () => {
             })
             .join('\n\n');
 
-        const prompt = `请作为一名资深的会议/对话记录助手，对以下对话内容进行结构化、专业且精简的总结。
+        const prompt = `你是一位专业的技术文档助手。请对以下对话内容进行**详细、结构化**的总结。
 
-要求：
-1. **核心主题**：用一句话概括讨论的主要内容。
-2. **要点摘要**：使用 Markdown 列表列出 3-5 个关键讨论点或结论。
-3. **行动项(Action Items)**：如果有，列出需要执行的任务（可选）。
-4. 语气客观、专业，去除口语化表达。
+**重要要求**：
+1. **不要过于简短**，要提供有价值的详细信息
+2. **保留关键细节**：包括具体的代码片段、命令、配置、步骤说明等
+3. **如果对话涉及教程或操作步骤**，必须列出完整的操作流程
+4. **如果有代码**，保留重要的代码示例（使用 Markdown 代码块）
+5. **如果有问题解决方案**，要详细说明最终的解决方法
 
+**输出格式**：
+## 📋 核心主题
+用 1-2 句话概括对话主旨
+
+## 🔑 关键要点
+使用 Markdown 列表详细列出讨论的重要内容：
+- 每个要点应包含足够的细节
+- 如涉及技术内容，附上相关代码或命令
+
+## 📝 详细说明
+（如果涉及教程/操作/问题解决）
+### 步骤流程
+1. 第一步：具体操作说明
+2. 第二步：...
+（包含关键代码或命令）
+
+### 重要代码/配置
+\`\`\`语言
+// 关键代码片段
+\`\`\`
+
+## ✅ 结论/解决方案
+最终的结论、解决方案或下一步行动
+
+---
 以下是对话内容：
 ${contextStr}`;
 
@@ -414,7 +457,8 @@ ${contextStr}`;
                 'Content-Type': 'application/json',
                 'Authorization': `Bearer ${apiConfig.value.apiKey}`
             },
-            body: JSON.stringify(requestBody)
+            body: JSON.stringify(requestBody),
+            signal: summaryAbortController.signal
         });
 
         if (!response.ok) throw new Error(`HTTP Error: ${response.status}`);
@@ -448,10 +492,15 @@ ${contextStr}`;
             }
         }
     } catch (e) {
+        if (e.name === 'AbortError') {
+            console.log('Summary request aborted');
+            return;
+        }
         console.error('Summarize Error:', e);
         summaryContent.value += `\n\n> ❌ 总结生成出错: ${e.message}`;
     } finally {
-        isSummarizing.value = false; // 完成（或出错）后停止 loading 状态
+        isSummarizing.value = false;
+        summaryAbortController = null;
     }
 };
 
@@ -505,12 +554,15 @@ ${contextStr}`;
             <!-- Input Area -->
             <ChatInput
                 ref="chatInputRef"
-                :disabled="isStreaming || isSelectionMode"
+                :is-streaming="isStreaming"
+                :can-stop="canStop"
+                :is-selection-mode="isSelectionMode"
                 :model-name="selectedModel?.name"
                 :context-enabled="contextEnabled"
                 :is-drawing-model="isCurrentDrawingModel"
                 :diagram-enabled="diagramEnabled"
                 @send="handleSend"
+                @stop="stopResponse"
                 @update:context-enabled="contextEnabled = $event"
                 @update:diagram-enabled="diagramEnabled = $event"
             />
@@ -562,7 +614,7 @@ ${contextStr}`;
             :show="showSummaryModal"
             :content="summaryContent"
             :is-loading="isSummarizing"
-            @close="showSummaryModal = false"
+            @close="handleCloseSummary"
         />
 
         <!-- 悬浮工具栏 -->

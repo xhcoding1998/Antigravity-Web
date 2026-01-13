@@ -202,13 +202,13 @@ select option {
 
 select option:hover,
 select option:checked {
-    background: linear-gradient(to right, #10A37F15, transparent);
+    background: linear-gradient(to right, #3B82F615, transparent);
     color: #111827;
 }
 
 .dark select option:hover,
 .dark select option:checked {
-    background: linear-gradient(to right, #19C37D20, transparent);
+    background: linear-gradient(to right, #60A5FA20, transparent);
     color: #ECECF1;
 }
 </style>

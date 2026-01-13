@@ -73,7 +73,7 @@ const iconColorMap = {
                             @click="handleConfirm"
                             :class="[
                                 'flex-1 px-4 py-2.5 rounded-xl transition-colors text-sm font-medium text-white',
-                                type === 'danger' ? 'bg-red-500 dark:bg-red-600 hover:bg-red-600 dark:hover:bg-red-700' : 'bg-chatgpt-accent dark:bg-chatgpt-dark-accent hover:bg-emerald-600 dark:hover:bg-emerald-500'
+                                type === 'danger' ? 'bg-red-500 dark:bg-red-600 hover:bg-red-600 dark:hover:bg-red-700' : 'bg-chatgpt-accent dark:bg-chatgpt-dark-accent hover:bg-blue-600 dark:hover:bg-blue-500'
                             ]"
                         >
                             {{ confirmText }}

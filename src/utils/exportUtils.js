@@ -233,10 +233,37 @@ async function renderElementToCanvas(element) {
         overflow: 'visible' // 确保内容不被裁剪
     });
 
+    // 3. 让代码块换行显示而不是滚动（使用 cssText 强制覆盖）
+    const codeBlocks = clone.querySelectorAll('pre, pre.hljs, pre code, .hljs');
+    codeBlocks.forEach(block => {
+        block.style.cssText += `
+            white-space: pre-wrap !important;
+            word-wrap: break-word !important;
+            word-break: break-all !important;
+            overflow-x: visible !important;
+            overflow: visible !important;
+            max-width: 100% !important;
+        `;
+    });
+
+    // 4. 修复行内代码样式（避免 html2canvas 渲染偏移）
+    const inlineCodes = clone.querySelectorAll('code:not(pre code)');
+    inlineCodes.forEach(code => {
+        code.style.cssText += `
+            display: inline !important;
+            vertical-align: baseline !important;
+            line-height: inherit !important;
+            padding: 2px 6px !important;
+            margin: 0 !important;
+            position: relative !important;
+            top: 0 !important;
+        `;
+    });
+
     document.body.appendChild(clone);
 
     // 等待一小段时间确保样式应用和某些资源加载
-    await new Promise(resolve => setTimeout(resolve, 100));
+    await new Promise(resolve => setTimeout(resolve, 150));
 
     try {
         const canvas = await html2canvas(clone, {

@@ -1,6 +1,6 @@
 <script setup>
 import { ref, watch, nextTick } from 'vue';
-import { CheckSquare, Image, FileText, Download, MoreHorizontal, GripHorizontal, ChevronLeft, ChevronRight, Sparkles, Moon, Sun } from 'lucide-vue-next';
+import { CheckSquare, Image, FileText, Download, MoreHorizontal, GripHorizontal, ChevronLeft, ChevronRight, Wand2, Moon, Sun } from 'lucide-vue-next';
 
 const props = defineProps({
   visible: {
@@ -140,11 +140,24 @@ const toggleCollapse = () => {
             <!-- 2. 中间：工具内容区 (收起时隐藏) -->
             <div class="dock-content" :class="{ 'hidden': isCollapsed }">
                  <div class="tools-group">
+                    <!-- 智能总结 - 亮点功能，始终显示在最前面 -->
+                    <button
+                        @click="$emit('summarize')"
+                        class="dock-button featured"
+                        title="智能总结对话"
+                    >
+                        <Wand2 :size="18" />
+                    </button>
+
+                    <!-- 分割线 -->
+                    <div class="division-dot"></div>
+
+                    <!-- 选择模式按钮 -->
                     <button
                         @click="$emit('toggleSelectionMode')"
                         :class="{ active: isSelectionMode }"
-                        class="dock-button main"
-                        :title="isSelectionMode ? '退出选择模式' : '选择消息'"
+                        class="dock-button"
+                        :title="isSelectionMode ? '退出选择模式' : '选择消息导出'"
                     >
                         <CheckSquare :size="18" />
                         <span v-if="isSelectionMode && selectedCount > 0" class="badge">{{ selectedCount }}</span>
@@ -164,15 +177,7 @@ const toggleCollapse = () => {
                     </template>
 
                     <template v-else>
-                         <!-- 总结按钮 -->
-                        <button
-                            @click="$emit('summarize')"
-                            class="dock-button"
-                            title="智能总结对话"
-                        >
-                            <Sparkles :size="18" class="text-purple-500" />
-                        </button>
-
+                        <!-- 更多导出选项 -->
                         <button
                             @click="toggleExportMenu"
                             class="dock-button"
@@ -181,7 +186,6 @@ const toggleCollapse = () => {
                         >
                             <MoreHorizontal :size="18" />
                         </button>
-
                     </template>
 
                     <!-- 分割线 -->
@@ -293,7 +297,7 @@ const toggleCollapse = () => {
     flex-direction: column;
     align-items: center;
     width: 100%;
-    padding: 4px 0 8px 0;
+    padding: 12px 0 12px 0;
     transition: all 0.3s ease;
     opacity: 1;
     max-height: 500px;
@@ -399,8 +403,43 @@ const toggleCollapse = () => {
 }
 
 .dock-button.active {
-    background: #10a37f !important;
+    background: #3B82F6 !important;
     color: white !important;
+}
+
+/* 智能总结按钮 - 亮点功能特殊样式 (优化后更统一、高级) */
+.dock-button.featured {
+    color: #8B5CF6;
+    background: rgba(139, 92, 246, 0.05);
+    border: 1px solid rgba(139, 92, 246, 0.2);
+    /* 增加一个非常微妙的外发光 */
+    box-shadow: 0 0 10px rgba(139, 92, 246, 0.05);
+}
+
+.dock-button.featured:hover:not(:disabled) {
+    background: rgba(139, 92, 246, 0.1);
+    color: #7C3AED;
+    border-color: rgba(139, 92, 246, 0.4);
+    box-shadow:
+        0 4px 12px rgba(139, 92, 246, 0.15),
+        0 0 8px rgba(139, 92, 246, 0.1);
+    transform: scale(1.1) translateY(-1px);
+}
+
+.dark .dock-button.featured {
+    background: rgba(167, 139, 250, 0.08);
+    color: #A78BFA;
+    border-color: rgba(167, 139, 250, 0.2);
+    box-shadow: 0 0 15px rgba(139, 92, 246, 0.1);
+}
+
+.dark .dock-button.featured:hover:not(:disabled) {
+    background: rgba(167, 139, 250, 0.15);
+    color: #C4B5FD;
+    border-color: rgba(167, 139, 250, 0.4);
+    box-shadow:
+        0 4px 15px rgba(0, 0, 0, 0.3),
+        0 0 12px rgba(167, 139, 250, 0.2);
 }
 
 .division-dot {

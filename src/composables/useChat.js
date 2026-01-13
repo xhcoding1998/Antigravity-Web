@@ -520,10 +520,39 @@ export function useChat() {
         // 缓存选中的模型ID到 IndexedDB
         if (isDbReady.value) {
             dbManager.saveSetting(SELECTED_MODEL_KEY, newId).catch(console.error);
+            // 同时保存当前分组ID,避免刷新后选错配置
+            dbManager.saveSetting('selectedGroupId', currentGroupId.value).catch(console.error);
         }
     });
 
     const isStreaming = ref(false);
+    const canStop = ref(false);
+    let abortController = null;
+
+    const stopResponse = () => {
+        if (abortController) {
+            abortController.abort();
+            abortController = null;
+            isStreaming.value = false;
+            canStop.value = false;
+
+            // 标记最后一条消息流式结束
+            const lastIndex = messages.value.length - 1;
+            if (lastIndex >= 0 && messages.value[lastIndex].role === 'assistant') {
+                messages.value[lastIndex] = {
+                    ...messages.value[lastIndex],
+                    streaming: false
+                };
+
+                // 同步更新历史记录
+                const chatIndex = history.value.findIndex(c => c.id === currentChatId.value);
+                if (chatIndex !== -1) {
+                    history.value[chatIndex].messages = JSON.parse(JSON.stringify(messages.value));
+                    saveHistoryDebounced(history.value[chatIndex]);
+                }
+            }
+        }
+    };
 
     // 保存聊天历史到 IndexedDB（防抖）
     let saveHistoryTimeout;
@@ -707,13 +736,15 @@ export function useChat() {
             }
 
             // Switching to Fetch API for reliable browser streaming
+            abortController = new AbortController();
             const response = await fetch(fullUrl, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                     'Authorization': `Bearer ${apiConfig.value.apiKey}`
                 },
-                body: JSON.stringify(requestBody)
+                body: JSON.stringify(requestBody),
+                signal: abortController.signal
             });
 
             if (!response.ok) {
@@ -732,12 +763,17 @@ export function useChat() {
             let partialLine = '';
             let hasContent = false;
 
-            while (true) {
+            let isReaderDone = false;
+            while (!isReaderDone) {
                 const { done, value } = await reader.read();
                 if (done) break;
 
+                // 只要收到第一块数据，就标记为可以停止
+                if (!canStop.value) {
+                    canStop.value = true;
+                }
+
                 const chunk = decoder.decode(value, { stream: true });
-                // SSE can use both \n\n and \n as separators
                 const lines = (partialLine + chunk).split(/\r?\n/);
                 partialLine = lines.pop() || '';
 
@@ -747,14 +783,12 @@ export function useChat() {
 
                     const data = trimmedLine.replace(/^data:\s*/, '');
 
-                    // 使用适配器解析流式响应
                     try {
                         const parsed = currentAdapter.value.parseStreamChunk(data);
                         if (parsed && parsed.content) {
                             hasContent = true;
                             const lastIndex = messages.value.length - 1;
                             if (lastIndex >= 0) {
-                                // Update content and trigger reactivity by replacing the object
                                 const currentMsg = messages.value[lastIndex];
                                 messages.value[lastIndex] = {
                                     ...currentMsg,
@@ -763,8 +797,8 @@ export function useChat() {
                             }
                         }
 
-                        // 如果适配器指示完成，跳出
                         if (parsed && parsed.done) {
+                            isReaderDone = true;
                             break;
                         }
                     } catch (e) {
@@ -774,33 +808,25 @@ export function useChat() {
                 }
             }
 
-            // 如果流结束了依然没有内容，给出提示
-            if (!hasContent) {
-                const lastIndex = messages.value.length - 1;
-                if (lastIndex >= 0) {
-                    messages.value[lastIndex] = {
-                        ...messages.value[lastIndex],
-                        content: '> ⚠️ 收到空响应。可能是模型未返回任何内容或 API 配置有误。',
-                        error: true // 标记为错误消息，下次请求不带上
-                    };
-                }
-            }
-
-            // After stream is finished, update history and streaming status
+            // 流式结束，更新状态
             const lastIndex = messages.value.length - 1;
             if (lastIndex >= 0) {
-                messages.value[lastIndex].streaming = false;
+                messages.value[lastIndex] = {
+                    ...messages.value[lastIndex],
+                    streaming: false
+                };
             }
 
             if (chatIndex !== -1) {
                 const updatedChat = history.value[chatIndex];
                 updatedChat.messages = JSON.parse(JSON.stringify(messages.value));
-
-                // 保存到 IndexedDB
                 saveHistoryDebounced(updatedChat);
             }
-
         } catch (error) {
+            if (error.name === 'AbortError') {
+                console.log('Fetch aborted');
+                return;
+            }
             console.error('API Error:', error);
             const lastIndex = messages.value.length - 1;
             if (lastIndex >= 0) {
@@ -821,6 +847,8 @@ export function useChat() {
             }
         } finally {
             isStreaming.value = false;
+            canStop.value = false;
+            abortController = null;
         }
     };
 
@@ -958,10 +986,31 @@ export function useChat() {
                 dataRetention.value = settings.dataRetention || DEFAULT_DATA_RETENTION;
             }
 
-            // 加载选中的模型
+            // 加载选中的模型和分组
             const savedModelId = await dbManager.getSetting(SELECTED_MODEL_KEY);
-            if (savedModelId) {
-                // 尝试找到模型所属的分组并切换
+            const savedGroupId = await dbManager.getSetting('selectedGroupId');
+
+            if (savedModelId && savedGroupId) {
+                // 如果同时有保存的模型ID和分组ID,优先使用这个组合
+                const group = modelGroups.value.find(g => g.id === savedGroupId);
+                if (group && group.models.some(m => m.id === savedModelId)) {
+                    // 分组存在且模型在该分组中
+                    currentGroupId.value = savedGroupId;
+                    selectedModelId.value = savedModelId;
+                } else if (savedModelId) {
+                    // 分组不存在或模型不在该分组中,尝试查找模型所在的分组
+                    const modelGroup = findGroupOfModel(savedModelId);
+                    if (modelGroup) {
+                        currentGroupId.value = modelGroup.id;
+                        selectedModelId.value = savedModelId;
+                    } else if (models.value.length > 0) {
+                        selectedModelId.value = models.value[0].id;
+                    }
+                } else if (models.value.length > 0) {
+                    selectedModelId.value = models.value[0].id;
+                }
+            } else if (savedModelId) {
+                // 只有模型ID,没有分组ID(旧版本数据)
                 const group = findGroupOfModel(savedModelId);
                 if (group) {
                     currentGroupId.value = group.id;
@@ -970,7 +1019,7 @@ export function useChat() {
                     selectedModelId.value = models.value[0].id;
                 }
             } else if (models.value.length > 0) {
-                // 如果没有保存的模型，选择当前分组第一个
+                // 如果没有保存的模型,选择当前分组第一个
                 selectedModelId.value = models.value[0].id;
             }
 
@@ -987,8 +1036,11 @@ export function useChat() {
 
             // 获取存储使用情况
             const storageInfo = await dbManager.getStorageEstimate();
-            if (storageInfo) {
-                console.log(`📊 存储使用情况: ${storageInfo.usageInMB}MB / ${storageInfo.quotaInMB}MB (${storageInfo.percentUsed}%)`);
+            if (storageInfo && storageInfo.total) {
+                const { usageInMB, quotaInMB, percentUsed } = storageInfo.total;
+                if (usageInMB !== undefined && quotaInMB !== undefined) {
+                    console.log(`📊 存储使用情况: ${usageInMB}MB / ${quotaInMB}MB (${percentUsed}%)`);
+                }
             }
 
         } catch (error) {
@@ -1103,12 +1155,15 @@ export function useChat() {
         history,
         currentChatId,
         messages,
-        isStreaming,
+        isDrawingModel,
         createNewChat,
         selectChat,
         deleteChat,
         clearHistory,
         sendMessage,
+        stopResponse,
+        canStop,
+        isStreaming,
         resendMessage,
         editMessage,
 
