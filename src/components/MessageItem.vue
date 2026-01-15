@@ -1616,7 +1616,7 @@ const closeTermExplanation = () => {
                             <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"></path>
                             <line x1="12" y1="17" x2="12.01" y2="17"></line>
                         </svg>
-                        <span class="text-xs font-semibold text-blue-900 dark:text-blue-100 break-words overflow-wrap-anywhere leading-tight">{{ termExplanation.term }}</span>
+                        <span class="text-xs font-semibold text-blue-900 dark:text-blue-100 truncate" :title="termExplanation.term">{{ termExplanation.term }}</span>
                     </div>
                     <button
                         @click="closeTermExplanation"
@@ -1628,7 +1628,7 @@ const closeTermExplanation = () => {
                 </div>
 
                 <!-- Content -->
-                <div class="p-4 max-h-[300px] overflow-y-auto">
+                <div class="p-4 max-h-[300px] overflow-y-auto overflow-x-hidden">
                     <!-- Loading State -->
                     <div v-if="termExplanation.loading && !termExplanation.explanation" class="flex items-center gap-2 text-chatgpt-subtext dark:text-chatgpt-dark-subtext">
                         <div class="flex gap-1">
@@ -1642,7 +1642,7 @@ const closeTermExplanation = () => {
                     <!-- Explanation Content with Markdown rendering -->
                     <div
                         v-else
-                        class="prose prose-sm prose-slate dark:prose-invert max-w-none text-chatgpt-text dark:text-chatgpt-dark-text"
+                        class="term-explanation-content prose prose-sm prose-slate dark:prose-invert max-w-none text-chatgpt-text dark:text-chatgpt-dark-text"
                         v-html="md.render(termExplanation.explanation)"
                     ></div>
 
@@ -1973,5 +1973,31 @@ const closeTermExplanation = () => {
 .fade-leave-from {
     opacity: 1;
     transform: translateY(0) scale(1);
+}
+
+/* 术语解释内容强制换行 */
+.term-explanation-content * {
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+    word-break: break-word;
+    max-width: 100%;
+}
+
+.term-explanation-content h1,
+.term-explanation-content h2,
+.term-explanation-content h3,
+.term-explanation-content h4,
+.term-explanation-content h5,
+.term-explanation-content h6 {
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+    hyphens: auto;
+}
+
+.term-explanation-content code,
+.term-explanation-content pre {
+    white-space: pre-wrap;
+    word-wrap: break-word;
+    overflow-wrap: break-word;
 }
 </style>
