@@ -1273,6 +1273,40 @@ const closeTermExplanation = () => {
     // 清除文本选择
     window.getSelection().removeAllRanges();
 };
+
+// 复制术语解释到剪贴板
+const copyTermExplanation = async () => {
+    try {
+        const text = termExplanation.value.explanation;
+
+        // 优先使用现代 Clipboard API
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+            await navigator.clipboard.writeText(text);
+            console.log('复制成功（Clipboard API）');
+        } else {
+            // 降级方案：使用传统方法
+            const textArea = document.createElement('textarea');
+            textArea.value = text;
+            textArea.style.position = 'fixed';
+            textArea.style.left = '-999999px';
+            textArea.style.top = '-999999px';
+            document.body.appendChild(textArea);
+            textArea.focus();
+            textArea.select();
+
+            try {
+                document.execCommand('copy');
+                console.log('复制成功（execCommand）');
+            } catch (err) {
+                console.error('复制失败:', err);
+            }
+
+            document.body.removeChild(textArea);
+        }
+    } catch (error) {
+        console.error('复制术语解释失败:', error);
+    }
+};
 </script>
 
 <template>
@@ -1655,7 +1689,7 @@ const closeTermExplanation = () => {
                     <span class="text-xs text-chatgpt-subtext dark:text-chatgpt-dark-subtext">由 AI 生成</span>
                     <button
                         v-if="!termExplanation.loading && termExplanation.explanation"
-                        @click="() => { navigator.clipboard.writeText(termExplanation.explanation); }"
+                        @click="copyTermExplanation"
                         class="text-xs text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1"
                         title="复制解释"
                     >
