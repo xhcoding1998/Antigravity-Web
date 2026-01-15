@@ -14,7 +14,10 @@ const props = defineProps({
     diagramEnabled: Boolean,
     codeTheme: String,
     isSelectionMode: Boolean,
-    isSelected: Boolean
+    isSelected: Boolean,
+    apiConfig: Object,
+    selectedModelId: String,
+    currentAdapter: Object
 });
 
 const emit = defineEmits(['resend', 'edit', 'toggleSelection']);
@@ -36,6 +39,31 @@ const md = new MarkdownIt({
         return `<pre><code class="hljs">${md.utils.escapeHtml(str)}</code></pre>`;
     }
 });
+
+// 自定义链接渲染规则，使所有链接在新标签页中打开
+const defaultRender = md.renderer.rules.link_open || function(tokens, idx, options, env, self) {
+    return self.renderToken(tokens, idx, options);
+};
+
+md.renderer.rules.link_open = function (tokens, idx, options, env, self) {
+    // 添加 target="_blank"
+    const aIndex = tokens[idx].attrIndex('target');
+    if (aIndex < 0) {
+        tokens[idx].attrPush(['target', '_blank']);
+    } else {
+        tokens[idx].attrs[aIndex][1] = '_blank';
+    }
+
+    // 添加 rel="noopener noreferrer" 以提高安全性
+    const relIndex = tokens[idx].attrIndex('rel');
+    if (relIndex < 0) {
+        tokens[idx].attrPush(['rel', 'noopener noreferrer']);
+    } else {
+        tokens[idx].attrs[relIndex][1] = 'noopener noreferrer';
+    }
+
+    return defaultRender(tokens, idx, options, env, self);
+};
 
 // 初始化 Mermaid
 mermaid.initialize({
@@ -582,6 +610,10 @@ watch([() => props.message.content, () => props.message.streaming], async () => 
         await nextTick();
         renderMermaidDiagrams();
         renderTables();
+        // 重新附加链接预览监听器
+        await nextTick();
+        removeLinkPreviewListeners();
+        attachLinkPreviewListeners();
     }
 }, { immediate: false });
 
@@ -616,6 +648,16 @@ onMounted(() => {
         childList: true,
         subtree: false
     });
+
+    // 添加链接预览监听器
+    nextTick(() => {
+        attachLinkPreviewListeners();
+    });
+
+    // 添加文本选择监听器（仅在非选择模式下）
+    if (!props.isSelectionMode && contentRef.value) {
+        contentRef.value.addEventListener('mouseup', handleTextSelection);
+    }
 });
 
 // 组件卸载时移除监听器
@@ -630,6 +672,32 @@ onUnmounted(() => {
     if (loadingTextInterval) {
         clearInterval(loadingTextInterval);
         loadingTextInterval = null;
+    }
+    // 清理链接预览相关
+    removeLinkPreviewListeners();
+    if (previewShowTimeout) {
+        clearTimeout(previewShowTimeout);
+        previewShowTimeout = null;
+    }
+    if (previewHideTimeout) {
+        clearTimeout(previewHideTimeout);
+        previewHideTimeout = null;
+    }
+    if (iframeLoadTimeout) {
+        clearTimeout(iframeLoadTimeout);
+        iframeLoadTimeout = null;
+    }
+    // 清理术语解释相关
+    if (contentRef.value) {
+        contentRef.value.removeEventListener('mouseup', handleTextSelection);
+    }
+    if (selectionTimeout) {
+        clearTimeout(selectionTimeout);
+        selectionTimeout = null;
+    }
+    if (explanationAbortController) {
+        explanationAbortController.abort();
+        explanationAbortController = null;
     }
 });
 
@@ -777,6 +845,433 @@ const handleMessageClick = (event) => {
         !event.target.closest('button')) {
         emit('toggleSelection', props.messageIndex);
     }
+};
+
+// 链接预览功能
+const linkPreview = ref({
+    visible: false,
+    url: '',
+    x: 0,
+    y: 0,
+    targetLink: null,
+    loading: true
+});
+
+let previewShowTimeout = null;
+let previewHideTimeout = null;
+let iframeLoadTimeout = null; // iframe 加载超时定时器
+
+// 显示链接预览
+const showLinkPreview = (event) => {
+    const link = event.target.closest('a');
+    if (!link || !link.href) return;
+
+    // 清除之前的隐藏定时器
+    if (previewHideTimeout) {
+        clearTimeout(previewHideTimeout);
+        previewHideTimeout = null;
+    }
+
+    // 延迟显示预览（避免快速划过时频繁显示）
+    previewShowTimeout = setTimeout(() => {
+        const rect = link.getBoundingClientRect();
+        const url = link.href;
+
+        // 计算预览卡片位置（优先显示在链接右侧，如果空间不够则显示在左侧）
+        const previewWidth = 400;
+        const previewHeight = 300;
+        const spacing = 12;
+
+        let x = rect.right + spacing;
+        let y = rect.top;
+
+        // 如果右侧空间不够，显示在左侧
+        if (x + previewWidth > window.innerWidth - 20) {
+            x = rect.left - previewWidth - spacing;
+        }
+
+        // 如果左侧也不够，显示在链接下方
+        if (x < 20) {
+            x = rect.left;
+            y = rect.bottom + spacing;
+        }
+
+        // 确保不超出视口底部
+        if (y + previewHeight > window.innerHeight - 20) {
+            y = window.innerHeight - previewHeight - 20;
+        }
+
+        // 确保不超出视口顶部
+        if (y < 20) {
+            y = 20;
+        }
+
+        linkPreview.value = {
+            visible: true,
+            url,
+            x,
+            y,
+            targetLink: link,
+            loading: true
+        };
+
+        // 清除之前的超时定时器
+        if (iframeLoadTimeout) {
+            clearTimeout(iframeLoadTimeout);
+        }
+
+        // 设置30秒超时
+        iframeLoadTimeout = setTimeout(() => {
+            if (linkPreview.value.loading) {
+                linkPreview.value.loading = false;
+                console.log('iframe 加载超时（30秒）');
+            }
+        }, 30000); // 30秒
+    }, 500); // 500ms 延迟
+};
+
+// 隐藏链接预览
+const hideLinkPreview = () => {
+    // 清除显示定时器
+    if (previewShowTimeout) {
+        clearTimeout(previewShowTimeout);
+        previewShowTimeout = null;
+    }
+
+    // 延迟隐藏（给用户时间移动到预览卡片上）
+    previewHideTimeout = setTimeout(() => {
+        linkPreview.value.visible = false;
+    }, 200);
+};
+
+// 保持预览显示（当鼠标移到预览卡片上时）
+const keepPreviewVisible = () => {
+    if (previewHideTimeout) {
+        clearTimeout(previewHideTimeout);
+        previewHideTimeout = null;
+    }
+};
+
+// 关闭预览
+const closePreview = () => {
+    if (previewShowTimeout) {
+        clearTimeout(previewShowTimeout);
+        previewShowTimeout = null;
+    }
+    if (previewHideTimeout) {
+        clearTimeout(previewHideTimeout);
+        previewHideTimeout = null;
+    }
+    if (iframeLoadTimeout) {
+        clearTimeout(iframeLoadTimeout);
+        iframeLoadTimeout = null;
+    }
+    linkPreview.value.visible = false;
+};
+
+// 为内容中的所有链接添加悬停事件
+const attachLinkPreviewListeners = () => {
+    if (!contentRef.value) return;
+
+    const links = contentRef.value.querySelectorAll('a');
+    links.forEach(link => {
+        link.addEventListener('mouseenter', showLinkPreview);
+        link.addEventListener('mouseleave', hideLinkPreview);
+    });
+};
+
+// 移除链接预览监听器
+const removeLinkPreviewListeners = () => {
+    if (!contentRef.value) return;
+
+    const links = contentRef.value.querySelectorAll('a');
+    links.forEach(link => {
+        link.removeEventListener('mouseenter', showLinkPreview);
+        link.removeEventListener('mouseleave', hideLinkPreview);
+    });
+};
+
+// iframe 加载完成
+const onIframeLoad = () => {
+    linkPreview.value.loading = false;
+    // 清除超时定时器
+    if (iframeLoadTimeout) {
+        clearTimeout(iframeLoadTimeout);
+        iframeLoadTimeout = null;
+    }
+};
+
+// ========== 术语解释功能 ==========
+const termExplanation = ref({
+    visible: false,
+    term: '',
+    explanation: '',
+    loading: false,
+    x: 0,
+    y: 0
+});
+
+let explanationAbortController = null;
+let selectionTimeout = null;
+
+// 处理文本选择
+const handleTextSelection = (event) => {
+    // 清除之前的定时器
+    if (selectionTimeout) {
+        clearTimeout(selectionTimeout);
+    }
+
+    // 延迟处理，避免频繁触发
+    selectionTimeout = setTimeout(() => {
+        const selection = window.getSelection();
+        const selectedText = selection.toString().trim();
+
+        // 如果没有选中文本或文本过长，隐藏解释卡片
+        if (!selectedText || selectedText.length > 100) {
+            termExplanation.value.visible = false;
+            return;
+        }
+
+        // 获取选区的位置
+        const range = selection.getRangeAt(0);
+        const rect = range.getBoundingClientRect();
+
+        // 计算卡片位置（显示在选中文本下方）
+        const cardWidth = 350;
+        const cardMaxHeight = 400;
+        const spacing = 8;
+
+        let x = rect.left + (rect.width / 2) - (cardWidth / 2);
+        let y = rect.bottom + spacing;
+
+        // 确保不超出视口右侧
+        if (x + cardWidth > window.innerWidth - 20) {
+            x = window.innerWidth - cardWidth - 20;
+        }
+
+        // 确保不超出视口左侧
+        if (x < 20) {
+            x = 20;
+        }
+
+        // 如果下方空间不够，显示在上方
+        if (y + cardMaxHeight > window.innerHeight - 20) {
+            y = rect.top - spacing - Math.min(cardMaxHeight, 200);
+        }
+
+        // 显示卡片并开始获取解释
+        termExplanation.value = {
+            visible: true,
+            term: selectedText,
+            explanation: '',
+            loading: true,
+            x,
+            y
+        };
+
+        // 调用 AI 获取解释
+        fetchTermExplanation(selectedText);
+    }, 300); // 300ms 延迟
+};
+
+// 调用 AI 获取术语解释
+const fetchTermExplanation = async (term) => {
+    try {
+        console.log('开始获取术语解释:', term);
+
+        // 取消之前的请求
+        if (explanationAbortController) {
+            explanationAbortController.abort();
+        }
+
+        explanationAbortController = new AbortController();
+
+        // 从父组件获取 API 配置
+        const { apiConfig, selectedModelId, currentAdapter } = await getApiConfig();
+
+        console.log('API 配置:', {
+            hasApiConfig: !!apiConfig,
+            hasBaseUrl: !!apiConfig?.baseUrl,
+            hasApiKey: !!apiConfig?.apiKey,
+            modelId: selectedModelId,
+            hasAdapter: !!currentAdapter
+        });
+
+        if (!apiConfig || !apiConfig.baseUrl || !apiConfig.apiKey) {
+            throw new Error('API 配置未设置');
+        }
+
+        if (!currentAdapter || typeof currentAdapter.formatRequest !== 'function') {
+            throw new Error('API 适配器未正确配置');
+        }
+
+        // 构建提示词
+        const prompt = `请详细解释以下术语或概念："${term}"
+
+要求：
+1. **核心定义**（2-3句话）：用通俗易懂的语言说明这个术语的本质含义
+2. **应用场景**（如果是技术术语）：说明它在实际中如何使用，解决什么问题
+3. **关键特点**：列出2-3个重要特征或优势
+4. **举例说明**（如果适用）：给一个简单的例子帮助理解
+
+注意：
+- 语言要通俗易懂，避免过于专业的术语
+- 如果遇到缩写，请先说明完整名称
+- 保持客观中立，不要有主观评价
+- 直接开始解释，不要有开场白或客套话`;
+
+        console.log('构建请求...');
+
+        // 格式化请求（不限制 max_tokens，让 AI 自然完成）
+        const requestBody = currentAdapter.formatRequest(
+            [{ role: 'user', content: prompt }],
+            selectedModelId,
+            { stream: true }
+        );
+
+        console.log('请求体:', requestBody);
+
+        // 组合完整的API地址
+        const rawBaseUrl = apiConfig.baseUrl || '';
+        const baseUrl = rawBaseUrl.endsWith('/') ? rawBaseUrl.slice(0, -1) : rawBaseUrl;
+        const rawEndpoint = apiConfig.endpoint || '/v1/chat/completions';
+        const endpoint = rawEndpoint.startsWith('/') ? rawEndpoint : '/' + rawEndpoint;
+        const fullUrl = `${baseUrl}${endpoint}`;
+
+        console.log('请求 URL:', fullUrl);
+
+        const response = await fetch(fullUrl, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${apiConfig.apiKey}`
+            },
+            body: JSON.stringify(requestBody),
+            signal: explanationAbortController.signal
+        });
+
+        console.log('响应状态:', response.status);
+
+        if (!response.ok) {
+            let errorDetail = '';
+            try {
+                const errorJson = await response.json();
+                errorDetail = errorJson.error?.message || errorJson.message || JSON.stringify(errorJson);
+            } catch (e) {
+                errorDetail = await response.text();
+            }
+            throw new Error(`HTTP ${response.status}: ${errorDetail}`);
+        }
+
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+        let partialLine = '';
+        let chunkCount = 0;
+
+        console.log('开始读取流...');
+
+        while (true) {
+            const { done, value } = await reader.read();
+
+            if (done) {
+                console.log('流读取完成，共处理', chunkCount, '个数据块');
+                // 处理最后可能残留的部分行
+                if (partialLine.trim()) {
+                    console.log('处理残留数据:', partialLine);
+                    const trimmedLine = partialLine.trim();
+                    if (trimmedLine.startsWith('data:')) {
+                        const data = trimmedLine.replace(/^data:\s*/, '');
+                        if (data !== '[DONE]') {
+                            try {
+                                const parsed = currentAdapter.parseStreamChunk(data);
+                                if (parsed && parsed.content) {
+                                    termExplanation.value.explanation += parsed.content;
+                                }
+                            } catch (e) {
+                                console.error('解析残留数据失败:', e);
+                            }
+                        }
+                    }
+                }
+                break;
+            }
+
+            chunkCount++;
+            const chunk = decoder.decode(value, { stream: true });
+            console.log(`接收到第 ${chunkCount} 个数据块，长度:`, chunk.length);
+
+            const lines = (partialLine + chunk).split(/\r?\n/);
+            partialLine = lines.pop() || '';
+
+            for (const line of lines) {
+                const trimmedLine = line.trim();
+                if (!trimmedLine) continue;
+
+                if (!trimmedLine.startsWith('data:')) {
+                    console.log('跳过非data行:', trimmedLine);
+                    continue;
+                }
+
+                const data = trimmedLine.replace(/^data:\s*/, '');
+
+                if (data === '[DONE]') {
+                    console.log('收到 [DONE] 信号');
+                    termExplanation.value.loading = false;
+                    continue;
+                }
+
+                try {
+                    const parsed = currentAdapter.parseStreamChunk(data);
+                    if (parsed && parsed.content) {
+                        termExplanation.value.explanation += parsed.content;
+                        console.log('累计内容长度:', termExplanation.value.explanation.length);
+                    }
+                    if (parsed && parsed.done) {
+                        console.log('解析器返回 done 信号');
+                        termExplanation.value.loading = false;
+                    }
+                } catch (e) {
+                    console.error('解析流数据失败:', e, '原始数据:', data.substring(0, 100));
+                }
+            }
+        }
+
+        // 确保 loading 状态被设置为 false
+        termExplanation.value.loading = false;
+        console.log('解释生成完成，最终内容长度:', termExplanation.value.explanation.length);
+
+    } catch (error) {
+        if (error.name === 'AbortError') {
+            console.log('术语解释请求已取消');
+            return;
+        }
+        console.error('获取术语解释失败:', error);
+        termExplanation.value.explanation = `获取解释失败: ${error.message}`;
+        termExplanation.value.loading = false;
+    }
+};
+
+// 获取 API 配置（从 props）
+const getApiConfig = async () => {
+    return {
+        apiConfig: props.apiConfig || {},
+        selectedModelId: props.selectedModelId || 'gemini-2.5-flash',
+        currentAdapter: props.currentAdapter || {
+            formatRequest: () => ({}),
+            parseStreamChunk: () => ({})
+        }
+    };
+};
+
+// 关闭术语解释卡片
+const closeTermExplanation = () => {
+    termExplanation.value.visible = false;
+    if (explanationAbortController) {
+        explanationAbortController.abort();
+        explanationAbortController = null;
+    }
+    // 清除文本选择
+    window.getSelection().removeAllRanges();
 };
 </script>
 
@@ -1009,6 +1504,161 @@ const handleMessageClick = (event) => {
                     </svg>
                     <span>保存为图片</span>
                 </button>
+            </div>
+        </Transition>
+
+        <!-- Link Preview Card -->
+        <Transition name="fade">
+            <div
+                v-if="linkPreview.visible"
+                :style="{ top: `${linkPreview.y}px`, left: `${linkPreview.x}px` }"
+                class="fixed z-[10000] bg-white dark:bg-chatgpt-dark-sidebar border-2 border-gray-200 dark:border-chatgpt-dark-border rounded-xl shadow-2xl dark:shadow-dark-elevated overflow-hidden"
+                @mouseenter="keepPreviewVisible"
+                @mouseleave="hideLinkPreview"
+                @click.stop
+            >
+                <!-- Header -->
+                <div class="flex items-center justify-between px-3 py-2 bg-gray-50 dark:bg-gray-800/50 border-b border-gray-200 dark:border-gray-700">
+                    <div class="flex items-center gap-2 flex-1 min-w-0">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-chatgpt-accent dark:text-chatgpt-dark-accent shrink-0">
+                            <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path>
+                            <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path>
+                        </svg>
+                        <span class="text-xs text-chatgpt-text dark:text-chatgpt-dark-text truncate font-medium">{{ linkPreview.url }}</span>
+                    </div>
+                    <button
+                        @click="closePreview"
+                        class="p-1 hover:bg-gray-200 dark:hover:bg-gray-700 rounded transition-colors shrink-0"
+                        title="关闭预览"
+                    >
+                        <X :size="14" class="text-chatgpt-subtext dark:text-chatgpt-dark-subtext" />
+                    </button>
+                </div>
+
+                <!-- Preview Content -->
+                <div class="w-[400px] h-[300px] bg-white dark:bg-gray-900 relative">
+                    <iframe
+                        :src="linkPreview.url"
+                        class="w-full h-full border-0"
+                        sandbox="allow-same-origin allow-scripts"
+                        loading="lazy"
+                        @load="onIframeLoad"
+                    ></iframe>
+                    <!-- Loading overlay -->
+                    <div v-if="linkPreview.loading" class="absolute inset-0 bg-white dark:bg-gray-900 flex flex-col">
+                        <!-- 模拟浏览器顶部栏 -->
+                        <div class="h-8 bg-gray-100 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 flex items-center px-3 gap-2">
+                            <div class="flex gap-1.5">
+                                <div class="w-2.5 h-2.5 rounded-full bg-red-400 animate-pulse"></div>
+                                <div class="w-2.5 h-2.5 rounded-full bg-yellow-400 animate-pulse" style="animation-delay: 0.1s"></div>
+                                <div class="w-2.5 h-2.5 rounded-full bg-green-400 animate-pulse" style="animation-delay: 0.2s"></div>
+                            </div>
+                            <div class="flex-1 h-5 bg-gray-200 dark:bg-gray-700 rounded animate-pulse"></div>
+                        </div>
+
+                        <!-- 模拟页面内容 - 骨架屏 -->
+                        <div class="flex-1 p-4 space-y-3 overflow-hidden">
+                            <!-- 标题骨架 -->
+                            <div class="h-6 bg-gray-200 dark:bg-gray-700 rounded w-3/4 animate-pulse"></div>
+
+                            <!-- 内容骨架 -->
+                            <div class="space-y-2">
+                                <div class="h-4 bg-gray-200 dark:bg-gray-700 rounded animate-pulse"></div>
+                                <div class="h-4 bg-gray-200 dark:bg-gray-700 rounded w-5/6 animate-pulse" style="animation-delay: 0.1s"></div>
+                                <div class="h-4 bg-gray-200 dark:bg-gray-700 rounded w-4/5 animate-pulse" style="animation-delay: 0.2s"></div>
+                            </div>
+
+                            <!-- 图片骨架 -->
+                            <div class="h-32 bg-gray-200 dark:bg-gray-700 rounded animate-pulse" style="animation-delay: 0.3s"></div>
+
+                            <!-- 更多内容骨架 -->
+                            <div class="space-y-2">
+                                <div class="h-4 bg-gray-200 dark:bg-gray-700 rounded animate-pulse" style="animation-delay: 0.4s"></div>
+                                <div class="h-4 bg-gray-200 dark:bg-gray-700 rounded w-11/12 animate-pulse" style="animation-delay: 0.5s"></div>
+                                <div class="h-4 bg-gray-200 dark:bg-gray-700 rounded w-3/4 animate-pulse" style="animation-delay: 0.6s"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Footer -->
+                <div class="px-3 py-2 bg-gray-50 dark:bg-gray-800/50 border-t border-gray-200 dark:border-gray-700">
+                    <a
+                        :href="linkPreview.url"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        class="text-xs text-chatgpt-accent dark:text-chatgpt-dark-accent hover:underline flex items-center gap-1"
+                    >
+                        <span>在新标签页中打开</span>
+                        <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
+                            <polyline points="15 3 21 3 21 9"></polyline>
+                            <line x1="10" y1="14" x2="21" y2="3"></line>
+                        </svg>
+                    </a>
+                </div>
+            </div>
+        </Transition>
+
+        <!-- Term Explanation Card -->
+        <Transition name="fade">
+            <div
+                v-if="termExplanation.visible"
+                :style="{ top: `${termExplanation.y}px`, left: `${termExplanation.x}px` }"
+                class="fixed z-[10001] w-[350px] bg-white dark:bg-chatgpt-dark-sidebar border-2 border-blue-400 dark:border-blue-500 rounded-xl shadow-2xl dark:shadow-dark-elevated overflow-hidden"
+                @click.stop
+            >
+                <!-- Header -->
+                <div class="flex items-center justify-between px-3 py-2 bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/30 dark:to-indigo-900/30 border-b border-blue-200 dark:border-blue-700">
+                    <div class="flex items-center gap-2 flex-1 min-w-0">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-blue-600 dark:text-blue-400 shrink-0">
+                            <circle cx="12" cy="12" r="10"></circle>
+                            <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"></path>
+                            <line x1="12" y1="17" x2="12.01" y2="17"></line>
+                        </svg>
+                        <span class="text-sm font-semibold text-blue-900 dark:text-blue-100 truncate">{{ termExplanation.term }}</span>
+                    </div>
+                    <button
+                        @click="closeTermExplanation"
+                        class="p-1 hover:bg-blue-100 dark:hover:bg-blue-800 rounded transition-colors shrink-0"
+                        title="关闭"
+                    >
+                        <X :size="14" class="text-blue-600 dark:text-blue-400" />
+                    </button>
+                </div>
+
+                <!-- Content -->
+                <div class="p-4 max-h-[300px] overflow-y-auto">
+                    <!-- Loading State -->
+                    <div v-if="termExplanation.loading && !termExplanation.explanation" class="flex items-center gap-2 text-chatgpt-subtext dark:text-chatgpt-dark-subtext">
+                        <div class="flex gap-1">
+                            <div class="w-2 h-2 bg-blue-500 rounded-full animate-bounce" style="animation-delay: 0ms"></div>
+                            <div class="w-2 h-2 bg-blue-500 rounded-full animate-bounce" style="animation-delay: 150ms"></div>
+                            <div class="w-2 h-2 bg-blue-500 rounded-full animate-bounce" style="animation-delay: 300ms"></div>
+                        </div>
+                        <span class="text-sm">AI 正在思考...</span>
+                    </div>
+
+                    <!-- Explanation Content -->
+                    <div v-else class="text-sm text-chatgpt-text dark:text-chatgpt-dark-text leading-relaxed whitespace-pre-wrap">
+                        {{ termExplanation.explanation }}
+                        <span v-if="termExplanation.loading" class="inline-block w-1 h-4 bg-blue-500 animate-pulse ml-1"></span>
+                    </div>
+                </div>
+
+                <!-- Footer -->
+                <div class="px-3 py-2 bg-gray-50 dark:bg-gray-800/50 border-t border-gray-200 dark:border-gray-700 flex items-center justify-between">
+                    <span class="text-xs text-chatgpt-subtext dark:text-chatgpt-dark-subtext">由 AI 生成</span>
+                    <button
+                        v-if="!termExplanation.loading && termExplanation.explanation"
+                        @click="() => { navigator.clipboard.writeText(termExplanation.explanation); }"
+                        class="text-xs text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1"
+                        title="复制解释"
+                    >
+                        <Copy :size="12" />
+                        <span>复制</span>
+                    </button>
+                </div>
             </div>
         </Transition>
     </Teleport>
@@ -1294,5 +1944,30 @@ const handleMessageClick = (event) => {
 
 .dark .attachment-card:hover {
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+/* 术语解释卡片平滑动画 */
+.fade-enter-active {
+    transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.fade-leave-active {
+    transition: all 0.2s cubic-bezier(0.4, 0, 1, 1);
+}
+
+.fade-enter-from {
+    opacity: 0;
+    transform: translateY(-8px) scale(0.96);
+}
+
+.fade-leave-to {
+    opacity: 0;
+    transform: translateY(-4px) scale(0.98);
+}
+
+.fade-enter-to,
+.fade-leave-from {
+    opacity: 1;
+    transform: translateY(0) scale(1);
 }
 </style>

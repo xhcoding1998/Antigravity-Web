@@ -10,7 +10,10 @@ const props = defineProps({
     diagramEnabled: Boolean,
     codeTheme: String,
     isSelectionMode: Boolean,
-    selectedMessageIds: Set
+    selectedMessageIds: Set,
+    apiConfig: Object,
+    selectedModelId: String,
+    currentAdapter: Object
 });
 
 const emit = defineEmits(['resend', 'edit', 'toggleSelection']);
@@ -178,9 +181,9 @@ const handleEdit = (messageIndex) => {
                 <div class="w-16 h-16 bg-gradient-to-br from-blue-400 to-indigo-500 rounded-2xl flex items-center justify-center shadow-elevated dark:shadow-dark-elevated mb-6 animate-slide-up">
                     <img src="/favicon.svg" class="w-10 h-10 object-contain" alt="ChatGPT" />
                 </div>
-                <h1 class="text-3xl font-bold mb-3 bg-gradient-to-r from-gray-900 to-gray-600 dark:from-gray-100 dark:to-gray-400 bg-clip-text text-transparent">有什么可以帮您?</h1>
+                <h1 class="text-3xl font-bold mb-3 bg-gradient-to-r from-gray-900 to-gray-600 dark:from-gray-100 dark:to-gray-400 bg-clip-text text-transparent">今天，有什么想法?</h1>
                 <div class="flex flex-wrap justify-center gap-3 max-w-3xl mt-8">
-                    <div v-for="(hint, index) in ['制定健身计划', '写一封感谢信', '总结这篇文章', '规划一次旅行']" :key="hint"
+                    <div v-for="(hint, index) in ['上传一个文件', '规划一次旅行', '写一份考核目标', '分析表格数据']" :key="hint"
                         class="px-4 py-3 rounded-2xl border-2 border-chatgpt-border dark:border-chatgpt-dark-border bg-white dark:bg-chatgpt-dark-user text-sm text-chatgpt-text dark:text-chatgpt-dark-text hover:bg-gray-50 dark:hover:bg-chatgpt-dark-assistant hover:border-gray-300 dark:hover:border-gray-600 hover:shadow-card dark:hover:shadow-dark-card cursor-pointer font-medium"
                         :style="{ animationDelay: `${index * 100}ms` }">
                         {{ hint }}
@@ -200,6 +203,9 @@ const handleEdit = (messageIndex) => {
                     :code-theme="codeTheme"
                     :is-selection-mode="isSelectionMode"
                     :is-selected="selectedMessageIds?.has(index)"
+                    :api-config="apiConfig"
+                    :selected-model-id="selectedModelId"
+                    :current-adapter="currentAdapter"
                     @resend="handleResend"
                     @edit="handleEdit"
                     @toggle-selection="$emit('toggleSelection', $event)"

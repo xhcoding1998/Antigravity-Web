@@ -145,6 +145,11 @@ const handleSend = async () => {
     if (textareaRef.value) {
         textareaRef.value.style.height = 'auto';
     }
+
+    // 发送消息后自动聚焦到输入框
+    nextTick(() => {
+        focus();
+    });
 };
 
 // 处理键盘事件 - 支持 Shift+Enter 换行
@@ -318,10 +323,14 @@ const adjustHeight = () => {
     }
 };
 
-// 组件挂载时添加粘贴事件监听
+// 组件挂载时添加粘贴事件监听并自动聚焦
 onMounted(() => {
     if (textareaRef.value) {
         textareaRef.value.addEventListener('paste', handlePaste);
+        // 页面加载时自动聚焦到输入框
+        nextTick(() => {
+            focus();
+        });
     }
 });
 
