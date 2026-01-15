@@ -1639,11 +1639,15 @@ const closeTermExplanation = () => {
                         <span class="text-sm">AI 正在思考...</span>
                     </div>
 
-                    <!-- Explanation Content -->
-                    <div v-else class="text-sm text-chatgpt-text dark:text-chatgpt-dark-text leading-relaxed whitespace-pre-wrap">
-                        {{ termExplanation.explanation }}
-                        <span v-if="termExplanation.loading" class="inline-block w-1 h-4 bg-blue-500 animate-pulse ml-1"></span>
-                    </div>
+                    <!-- Explanation Content with Markdown rendering -->
+                    <div
+                        v-else
+                        class="prose prose-sm prose-slate dark:prose-invert max-w-none text-chatgpt-text dark:text-chatgpt-dark-text"
+                        v-html="md.render(termExplanation.explanation)"
+                    ></div>
+
+                    <!-- Streaming cursor -->
+                    <span v-if="termExplanation.loading && termExplanation.explanation" class="inline-block w-1 h-4 bg-blue-500 animate-pulse ml-1"></span>
                 </div>
 
                 <!-- Footer -->
