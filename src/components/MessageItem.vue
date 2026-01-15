@@ -649,11 +649,6 @@ onMounted(() => {
         subtree: false
     });
 
-    // 添加链接预览监听器
-    nextTick(() => {
-        attachLinkPreviewListeners();
-    });
-
     // 添加文本选择监听器（仅在非选择模式下）
     if (!props.isSelectionMode && contentRef.value) {
         contentRef.value.addEventListener('mouseup', handleTextSelection);
@@ -703,6 +698,8 @@ onUnmounted(() => {
         clearTimeout(copiedTimeout);
         copiedTimeout = null;
     }
+    // 移除全局点击监听
+    document.removeEventListener('click', handleClickOutside);
 });
 
 const isUser = computed(() => props.message.role === 'user');
@@ -1078,6 +1075,19 @@ const handleTextSelection = (event) => {
         // 调用 AI 获取解释
         fetchTermExplanation(selectedText);
     }, 300); // 300ms 延迟
+};
+
+// 处理点击外部关闭术语解释
+const handleClickOutside = (event) => {
+    if (!termExplanation.value.visible) return;
+
+    // 检查点击是否在卡片外部
+    const target = event.target;
+    const isClickInsideCard = target.closest('.term-explanation-card');
+
+    if (!isClickInsideCard) {
+        closeTermExplanation();
+    }
 };
 
 // 调用 AI 获取术语解释
@@ -1660,7 +1670,7 @@ const copyTermExplanation = async () => {
             <div
                 v-if="termExplanation.visible"
                 :style="{ top: `${termExplanation.y}px`, left: `${termExplanation.x}px` }"
-                class="fixed z-[10001] w-[350px] bg-white dark:bg-chatgpt-dark-sidebar border-2 border-blue-400 dark:border-blue-500 rounded-xl shadow-2xl dark:shadow-dark-elevated overflow-hidden"
+                class="term-explanation-card fixed z-[10001] w-[350px] bg-white dark:bg-chatgpt-dark-sidebar border-2 border-blue-400 dark:border-blue-500 rounded-xl shadow-2xl dark:shadow-dark-elevated overflow-hidden"
                 @click.stop
             >
                 <!-- Header -->
