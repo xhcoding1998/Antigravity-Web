@@ -1610,13 +1610,13 @@ const closeTermExplanation = () => {
             >
                 <!-- Header -->
                 <div class="flex items-center justify-between px-3 py-2 bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/30 dark:to-indigo-900/30 border-b border-blue-200 dark:border-blue-700">
-                    <div class="flex items-center gap-2 flex-1 min-w-0">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-blue-600 dark:text-blue-400 shrink-0">
+                    <div class="flex items-center gap-2 flex-1 min-w-0 pr-2">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-blue-600 dark:text-blue-400 shrink-0">
                             <circle cx="12" cy="12" r="10"></circle>
                             <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"></path>
                             <line x1="12" y1="17" x2="12.01" y2="17"></line>
                         </svg>
-                        <span class="text-sm font-semibold text-blue-900 dark:text-blue-100 truncate">{{ termExplanation.term }}</span>
+                        <span class="text-xs font-semibold text-blue-900 dark:text-blue-100 break-words overflow-wrap-anywhere leading-tight">{{ termExplanation.term }}</span>
                     </div>
                     <button
                         @click="closeTermExplanation"
