@@ -624,8 +624,8 @@ let errorObserver = null;
 onMounted(() => {
     renderMermaidDiagrams();
     renderTables();
-    // 添加全局点击事件监听器,关闭右键菜单
-    document.addEventListener('click', closeContextMenu);
+    // 添加全局点击监听，用于关闭术语解释卡片（使用捕获模式确保点击侧边栏等区域也能捕获到）
+    window.addEventListener('mousedown', handleClickOutside, true);
 
     // 创建 MutationObserver 监听 body 的子元素变化
     errorObserver = new MutationObserver((mutations) => {
@@ -699,7 +699,7 @@ onUnmounted(() => {
         copiedTimeout = null;
     }
     // 移除全局点击监听
-    document.removeEventListener('click', handleClickOutside);
+    window.removeEventListener('mousedown', handleClickOutside, true);
 });
 
 const isUser = computed(() => props.message.role === 'user');
@@ -1081,10 +1081,18 @@ const handleTextSelection = (event) => {
 const handleClickOutside = (event) => {
     if (!termExplanation.value.visible) return;
 
-    // 检查点击是否在卡片外部
-    const target = event.target;
-    const isClickInsideCard = target.closest('.term-explanation-card');
+    // 获取所有术语解释卡片元素
+    const cards = document.querySelectorAll('.term-explanation-card');
 
+    // 检查点击是否在任何卡片内部
+    let isClickInsideCard = false;
+    cards.forEach(card => {
+        if (card.contains(event.target)) {
+            isClickInsideCard = true;
+        }
+    });
+
+    // 如果点击在卡片外部，关闭卡片
     if (!isClickInsideCard) {
         closeTermExplanation();
     }
@@ -2130,7 +2138,8 @@ const copyTermExplanation = async () => {
 .term-explanation-content ol {
     margin-top: 0.375rem;
     margin-bottom: 0.375rem;
-    padding-left: 1.25rem;
+    padding-left: 1rem !important;
+    margin-left: 0 !important;
 }
 
 .term-explanation-content li {

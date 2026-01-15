@@ -174,7 +174,11 @@ const handleKeyDown = (event) => {
         } else {
             // 普通 Enter: 发送消息
             event.preventDefault();
-            handleSend();
+            // 如果正在流式输出，Enter 不做发送操作（但可以根据需要保留停止功能，或者根据用户要求完全不发送/停止）
+            // 按照用户要求 "没办法enter回车发送"，这里在 streaming 时不做 handleSend
+            if (!props.isStreaming) {
+                handleSend();
+            }
         }
     }
 };
@@ -344,6 +348,16 @@ onUnmounted(() => {
 // 监听输入变化
 watch(input, () => {
     nextTick(adjustHeight);
+});
+
+// 监听流式输出状态变化，结束后自动聚焦
+watch(() => props.isStreaming, (newVal, oldVal) => {
+    if (oldVal === true && newVal === false) {
+        // AI 回复结束，自动聚焦
+        nextTick(() => {
+            focus();
+        });
+    }
 });
 
 // 暴露方法供父组件调用
@@ -532,7 +546,7 @@ defineExpose({
                         :placeholder="uploadedFiles.length > 0 ? '描述文件内容或提问...' : (images.length > 0 ? '描述图片内容或提问...' : `给 ${displayName} 发消息... (Shift+Enter 换行)`)"
                         @keydown="handleKeyDown"
                         class="flex-1 resize-none border-0 bg-transparent p-3 md:p-3.5 focus:ring-0 focus:outline-none text-chatgpt-text dark:text-chatgpt-dark-text placeholder-gray-400 dark:placeholder-gray-500 text-[15px] max-h-48 custom-scrollbar leading-relaxed"
-                        :disabled="isStreaming || isSelectionMode"
+                        :disabled="isSelectionMode"
                     ></textarea>
 
                     <button
