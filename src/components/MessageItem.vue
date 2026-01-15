@@ -699,6 +699,10 @@ onUnmounted(() => {
         explanationAbortController.abort();
         explanationAbortController = null;
     }
+    if (copiedTimeout) {
+        clearTimeout(copiedTimeout);
+        copiedTimeout = null;
+    }
 });
 
 const isUser = computed(() => props.message.role === 'user');
@@ -1008,11 +1012,13 @@ const termExplanation = ref({
     explanation: '',
     loading: false,
     x: 0,
-    y: 0
+    y: 0,
+    copied: false
 });
 
 let explanationAbortController = null;
 let selectionTimeout = null;
+let copiedTimeout = null;
 
 // 处理文本选择
 const handleTextSelection = (event) => {
@@ -1299,10 +1305,25 @@ const copyTermExplanation = async () => {
                 console.log('复制成功（execCommand）');
             } catch (err) {
                 console.error('复制失败:', err);
+                return; // 复制失败，不显示成功状态
             }
 
             document.body.removeChild(textArea);
         }
+
+        // 显示复制成功状态
+        termExplanation.value.copied = true;
+
+        // 清除之前的定时器
+        if (copiedTimeout) {
+            clearTimeout(copiedTimeout);
+        }
+
+        // 2秒后恢复
+        copiedTimeout = setTimeout(() => {
+            termExplanation.value.copied = false;
+        }, 2000);
+
     } catch (error) {
         console.error('复制术语解释失败:', error);
     }
@@ -1690,11 +1711,22 @@ const copyTermExplanation = async () => {
                     <button
                         v-if="!termExplanation.loading && termExplanation.explanation"
                         @click="copyTermExplanation"
-                        class="text-xs text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1"
-                        title="复制解释"
+                        :class="[
+                            'text-xs flex items-center gap-1 transition-colors',
+                            termExplanation.copied
+                                ? 'text-green-600 dark:text-green-400'
+                                : 'text-blue-600 dark:text-blue-400 hover:underline'
+                        ]"
+                        :title="termExplanation.copied ? '已复制' : '复制解释'"
                     >
-                        <Copy :size="12" />
-                        <span>复制</span>
+                        <template v-if="termExplanation.copied">
+                            <Check :size="12" />
+                            <span>已复制</span>
+                        </template>
+                        <template v-else>
+                            <Copy :size="12" />
+                            <span>复制</span>
+                        </template>
                     </button>
                 </div>
             </div>
