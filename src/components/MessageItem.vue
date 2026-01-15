@@ -2000,4 +2000,65 @@ const closeTermExplanation = () => {
     word-wrap: break-word;
     overflow-wrap: break-word;
 }
+
+/* 术语解释内容字体大小调整 */
+.term-explanation-content {
+    font-size: 0.8125rem; /* 13px */
+    line-height: 1.5;
+}
+
+.term-explanation-content h1 {
+    font-size: 1rem; /* 16px */
+    margin-top: 0.75rem;
+    margin-bottom: 0.5rem;
+}
+
+.term-explanation-content h2 {
+    font-size: 0.9375rem; /* 15px */
+    margin-top: 0.625rem;
+    margin-bottom: 0.375rem;
+}
+
+.term-explanation-content h3 {
+    font-size: 0.875rem; /* 14px */
+    margin-top: 0.5rem;
+    margin-bottom: 0.25rem;
+}
+
+.term-explanation-content h4,
+.term-explanation-content h5,
+.term-explanation-content h6 {
+    font-size: 0.8125rem; /* 13px */
+    margin-top: 0.5rem;
+    margin-bottom: 0.25rem;
+}
+
+.term-explanation-content p {
+    margin-top: 0.375rem;
+    margin-bottom: 0.375rem;
+}
+
+.term-explanation-content code {
+    font-size: 0.75rem; /* 12px */
+    padding: 0.125rem 0.25rem;
+}
+
+.term-explanation-content pre {
+    font-size: 0.75rem; /* 12px */
+    padding: 0.5rem;
+    margin-top: 0.5rem;
+    margin-bottom: 0.5rem;
+}
+
+.term-explanation-content ul,
+.term-explanation-content ol {
+    margin-top: 0.375rem;
+    margin-bottom: 0.375rem;
+    padding-left: 1.25rem;
+}
+
+.term-explanation-content li {
+    margin-top: 0.125rem;
+    margin-bottom: 0.125rem;
+}
 </style>
