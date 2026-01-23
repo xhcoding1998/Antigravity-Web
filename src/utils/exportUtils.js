@@ -171,7 +171,23 @@ export function prepareMacOSContainerDOM(messages, title = '对话导出', isDar
           }
       }
 
-      // 3. Remove Action Buttons (except Code Copy)
+      // 3. Fix Inline Code Style (去掉行内代码的背景色，避免偏移遮挡)
+      // 只处理不在 pre 内的 code 标签
+      const inlineCodes = clonedMsg.querySelectorAll('code:not(pre code)');
+      inlineCodes.forEach(code => {
+          Object.assign(code.style, {
+              backgroundColor: 'transparent',
+              border: 'none',
+              padding: '0 2px',
+              color: isDark ? '#e06c75' : '#c7254e',
+              fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace',
+              fontSize: 'inherit',
+              lineHeight: 'inherit',
+              verticalAlign: 'baseline'
+          });
+      });
+
+      // 4. Remove Action Buttons (except Code Copy)
       const actionButtons = clonedMsg.querySelectorAll('button');
       actionButtons.forEach(btn => {
         if (!btn.closest('.code-block-header')) {
