@@ -537,6 +537,10 @@ const handleCreateApiConfig = async () => {
 
             if (result.models && result.models.length > 0) {
                 showToastMessage(`成功创建API配置并同步 ${result.models.length} 个模型`, 'success');
+                // 同步成功后自动关闭设置弹窗（延迟一点让用户看到提示）
+                setTimeout(() => {
+                    emit('close');
+                }, 800);
             } else if (result.error) {
                 showToastMessage(`API配置已创建，但模型同步失败：${result.error}`, 'warning');
             } else {

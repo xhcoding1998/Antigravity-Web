@@ -141,37 +141,33 @@ export function prepareMacOSContainerDOM(messages, title = '对话导出', isDar
       }
 
       // 2. Fix Model Tag Style
-      // 恢复漂亮的视觉样式，但使用对 html2canvas 友好的显式 CSS
-      const modelTag = clonedMsg.querySelector('span[class*="bg-blue-100"], span[class*="bg-chatgpt-"]');
-      if (modelTag) {
-          // 清除可能导致偏移的 Tailwind 类和样式
-          modelTag.className = '';
-          modelTag.removeAttribute('style');
+      // 只定位消息头部的模型ID标签，不影响内容区域的其他元素
+      // 模型标签位于 .flex.flex-col.gap-1 > .flex.items-center.gap-2 > span.font-mono 结构中
+      const headerContainer = clonedMsg.querySelector('.flex.flex-col.gap-1.mb-1');
+      if (headerContainer) {
+          const nameRow = headerContainer.querySelector('.flex.items-center.gap-2');
+          const modelTag = nameRow?.querySelector('span.font-mono');
+          
+          if (modelTag) {
+              // 清除所有 Tailwind 类和样式，使用简洁的纯文本样式（无背景无边框）
+              modelTag.className = '';
+              modelTag.removeAttribute('style');
 
-          Object.assign(modelTag.style, {
-              display: 'inline-flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              height: '18px',
-              padding: '0 6px',
-              marginLeft: '6px',
-              backgroundColor: isDark ? 'rgba(59, 130, 246, 0.2)' : 'rgba(219, 234, 254, 1)', // blue-100 / dark
-              color: isDark ? '#60a5fa' : '#1e40af', // blue-800 / blue-400
-              borderRadius: '4px',
-              fontSize: '10px',
-              fontWeight: '500',
-              fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace',
-              lineHeight: '1',
-              verticalAlign: 'middle',
-              transform: 'none', // 禁止变换，防止偏移
-              border: isDark ? '1px solid rgba(59, 130, 246, 0.3)' : 'none'
-          });
-
-          // 确保父容器对齐
-          if (modelTag.parentElement) {
-              modelTag.parentElement.style.display = 'flex';
-              modelTag.parentElement.style.alignItems = 'center';
-              modelTag.parentElement.style.flexWrap = 'wrap';
+              Object.assign(modelTag.style, {
+                  display: 'inline',
+                  padding: '0',
+                  margin: '0',
+                  marginLeft: '4px',
+                  backgroundColor: 'transparent',
+                  color: isDark ? '#888888' : '#666666',
+                  border: 'none',
+                  borderRadius: '0',
+                  fontSize: '10px',
+                  fontWeight: '400',
+                  fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace',
+                  lineHeight: 'inherit',
+                  verticalAlign: 'baseline'
+              });
           }
       }
 
