@@ -222,6 +222,12 @@ export function prepareMacOSContainerDOM(messages, title = '对话导出', isDar
                   c.style.fontSize = '11px';
                   c.style.lineHeight = '1.4';
               });
+              // 减小列表的左边距
+              const lists = textContainer.querySelectorAll('ul, ol');
+              lists.forEach(list => {
+                  list.style.marginLeft = '0.32rem';
+                  list.style.paddingLeft = '0.32rem';
+              });
           }
           // Reduce avatar size
           const avatar = clonedMsg.querySelector('.w-8.h-8, .w-10.h-10');
