@@ -575,7 +575,7 @@ ${contextStr}`;
 
         <!-- Settings Modal -->
         <Transition name="modal">
-            <div v-if="showSettings">
+            <div v-if="showSettings" class="fixed inset-0 z-50">
                 <Settings
                     :model-groups="modelGroups"
                     :current-group-id="currentGroupId"

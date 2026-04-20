@@ -261,11 +261,7 @@ onUnmounted(() => {
         <!-- Toggle Button -->
         <button
             @click="toggleCollapse"
-            :class="[
-                'absolute top-4 z-20 p-2 rounded-lg bg-white dark:bg-chatgpt-dark-sidebar border border-chatgpt-border dark:border-chatgpt-dark-border shadow-card dark:shadow-dark-card hover:shadow-elevated dark:hover:shadow-dark-elevated transition-all',
-                isResizing ? '' : 'duration-300'
-            ]"
-            :style="{ left: isCollapsed ? '12px' : `${sidebarWidth + 12}px` }"
+            class="shrink-0 self-start ml-3 mt-4 p-2 rounded-lg bg-white dark:bg-chatgpt-dark-sidebar border border-chatgpt-border dark:border-chatgpt-dark-border shadow-card dark:shadow-dark-card hover:shadow-elevated dark:hover:shadow-dark-elevated transition-shadow"
             :title="isCollapsed ? '展开侧边栏' : '收起侧边栏'"
         >
             <PanelLeft v-if="isCollapsed" :size="18" class="text-chatgpt-subtext dark:text-chatgpt-dark-subtext" />
