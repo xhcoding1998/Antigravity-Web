@@ -2,6 +2,8 @@
  * 模型服务 - 负责从API获取模型列表
  */
 
+import { proxiedUrl } from '../utils/apiProxy.js';
+
 /**
  * 从API获取模型列表
  * @param {string} baseUrl - API基础地址
@@ -15,17 +17,21 @@ export async function fetchModels(baseUrl, apiKey, endpoint = '/v1/models') {
     throw new Error('API基础地址和密钥不能为空');
   }
 
-  // 规范化URL
-  const normalizedBaseUrl = baseUrl.endsWith('/') ? baseUrl.slice(0, -1) : baseUrl;
-  const normalizedEndpoint = endpoint.startsWith('/') ? endpoint : '/' + endpoint;
+  // 规范化URL，避免 baseUrl 已含 /v1 时拼出 /v1/v1/models
+  let normalizedBaseUrl = baseUrl.replace(/\/+$/, '');
+  let normalizedEndpoint = endpoint.startsWith('/') ? endpoint : '/' + endpoint;
+
+  if (/\/v\d+$/.test(normalizedBaseUrl) && /^\/v\d+\//.test(normalizedEndpoint)) {
+    normalizedEndpoint = normalizedEndpoint.replace(/^\/v\d+/, '');
+  }
+
   const fullUrl = `${normalizedBaseUrl}${normalizedEndpoint}`;
 
   try {
-    const response = await fetch(fullUrl, {
+    const response = await fetch(proxiedUrl(fullUrl), {
       method: 'GET',
       headers: {
-        'Authorization': `Bearer ${apiKey}`,
-        'Content-Type': 'application/json'
+        'Authorization': `Bearer ${apiKey}`
       }
     });
 
@@ -60,9 +66,16 @@ export async function fetchModels(baseUrl, apiKey, endpoint = '/v1/models') {
     return formatModelData(data.data);
 
   } catch (error) {
-    // 网络错误或其他错误
-    if (error.message.includes('Failed to fetch') || error.message.includes('NetworkError')) {
-      throw new Error('无法连接到API服务器，请检查网络连接和API地址');
+    if (error.name === 'TypeError' && error.message.includes('Failed to fetch')) {
+      throw new Error(
+        `无法连接到API服务器 (${fullUrl})，可能原因：\n` +
+        '1. API地址不正确，请检查是否多了或少了 /v1\n' +
+        '2. 服务器不支持浏览器跨域请求(CORS)\n' +
+        '3. 网络连接异常'
+      );
+    }
+    if (error.message.includes('NetworkError')) {
+      throw new Error('网络连接异常，请检查网络');
     }
     throw error;
   }

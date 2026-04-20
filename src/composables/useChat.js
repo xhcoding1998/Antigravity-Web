@@ -3,6 +3,7 @@ import { Zap, BrainCircuit, Sparkles, Cpu, Image as ImageIcon } from 'lucide-vue
 import { dbManager } from '../utils/indexedDB.js';
 import ApiAdapterFactory from '../utils/apiAdapters.js';
 import PRESET_GROUPS from '../config/presetGroups.js';
+import { proxiedUrl } from '../utils/apiProxy.js';
 
 const SETTINGS_KEY = 'chatgpt_settings';
 const SELECTED_MODEL_KEY = 'chatgpt_selected_model';
@@ -735,9 +736,8 @@ export function useChat() {
                 throw new Error('API 基础地址未配置');
             }
 
-            // Switching to Fetch API for reliable browser streaming
             abortController = new AbortController();
-            const response = await fetch(fullUrl, {
+            const response = await fetch(proxiedUrl(fullUrl), {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
